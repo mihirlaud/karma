@@ -1,0 +1,50 @@
+/*
+This is a demo program for the Karma programming language. 
+
+Karma is being built specifically for use in the field of robotics and automation.
+The goal is to have a high performance language that allows for fast iteration, leading
+to better code sooner. Areas of focus include concurrency (allowing multiple subsystems
+to run at the same time) and memory safety (communicating between subsystems without
+compromising data).
+
+*/
+
+// This is a node. A node is the smallest block of Karma code that can be run
+// independently. A program can be a single node by itself or multiple nodes
+// working in tandem and communicating.
+node HelloWorld {
+
+// Variables that need to be visible to other nodes must be exported to make
+// them public. They must have a definite type and be initialized at the start.
+export counter: i32 = 0;
+
+// Each node has a main function. When you run a node, you call its main
+// function. The return type of this function is !, or never. This tells the
+// compiler that this function should not be expected to return at all under
+// normal operation. The only time it will return is from a panic, an error,
+// or if the user kills the program externally. 
+fn main() -> ! {
+
+    while(true) {
+        counter = counter + 1;
+    }
+
+}
+
+}
+
+node HelloNodes : HelloWorld {
+
+export var sum: i32 = 0;
+
+fn main() -> ! {
+    const k: i32 = 3;
+
+    while true {
+        sum += k * HelloWorld::counter;
+
+        print("{}", sum);
+    }
+}
+
+}

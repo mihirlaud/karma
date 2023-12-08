@@ -1,0 +1,28 @@
+// This is a node. A node is the smallest block of Karma code that can be run
+// independently. A program can be a single node by itself or multiple nodes
+// working in tandem and communicating.
+node HelloWorld {
+    export var counter: i32 = 0;
+
+    fn main() -> ! {
+        while true {
+            counter = counter + 1;
+        }
+    }
+}
+
+node HelloNodes : HelloWorld {
+
+export var sum: i32 = 0;
+
+fn main() -> ! {
+    const k: i32 = 3;
+
+    while true {
+        sum += k * HelloWorld::counter;
+
+        print("{}", sum);
+    }
+}
+
+}
