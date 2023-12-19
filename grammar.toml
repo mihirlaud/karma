@@ -1,0 +1,47 @@
+[stmt]
+prods = [
+    ["var", "IDENTIFIER", ":", "IDENTIFIER", "=", "expression", ";"]
+]
+first = ["var"]
+follow = ["$"]
+
+[expression]
+prods = [
+    ["term", "expression1"]
+]
+first = ["(", "IDENTIFIER", "NUMBER"]
+follow = [")", ";"]
+
+[expression1]
+prods = [
+    ["+", "term", "expression1"],
+    ["-", "term", "expression1"],
+    [""]
+]
+first = ["+", "-", ""]
+follow = [")", ";"]
+
+[term]
+prods = [
+    ["factor", "term1"]
+]
+first = ["(", "IDENTIFIER", "NUMBER"]
+follow = ["+", "-", ")", ";"]
+
+[term1]
+prods = [
+    ["*", "factor", "term1"],
+    ["/", "factor", "term1"],
+    [""]
+]
+first = ["*", "/", ""]
+follow = ["+", "-", ")", ";"]
+
+[factor]
+prods = [
+    ["(", "expression", ")"],
+    ["IDENTIFIER"],
+    ["NUMBER"]
+]
+first = ["(", "IDENTIFIER", "NUMBER"]
+follow = ["*", "/", "+", "-", ")", ";"]

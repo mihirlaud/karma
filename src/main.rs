@@ -2,13 +2,17 @@ mod lexer;
 mod parser;
 
 use crate::lexer::Lexer;
+use crate::parser::Parser;
 
 fn main() {
-    let mut lexer = Lexer::new("code/current_snippet.krm");
+    let lexer = Lexer::new("code/current_snippet.krm");
 
-    while let Some(token) = lexer.next_token() {
-        println!("{token}");
+    let mut parser = Parser::new(lexer);
+
+    match parser.parse() {
+        Ok(_) => {
+            parser.gen();
+        },
+        Err(s) => println!("{s}"),
     }
-
-    println!("Lexing finished");
 }

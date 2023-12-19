@@ -22,7 +22,7 @@ static SYMBOLS: phf::Map<&'static str, Token> = phf_map! {
     "==" => Token::Equals, "!" => Token::Not, "<" => Token::Less, ">" => Token::Greater, "<=" => Token::Leq, ">=" => Token::Geq, "!=" => Token::Neq,
 };
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum Token {
     ID(String),
     Number(f64),
@@ -298,6 +298,36 @@ impl Lexer {
             forward += 1;
         }
 
-        None
+        match state {
+            4 => {
+                let attr = self.chars[self.curr .. self.chars.len()].into_iter().collect::<String>();
+                self.curr = self.chars.len();
+
+                if KEYWORDS.contains_key(attr.as_str()) {
+                    Some(KEYWORDS[attr.as_str()].clone())
+                } else {
+                    Some(Token::ID(attr))
+                }
+            }
+            5 => {
+                let attr = self.chars[self.curr .. self.chars.len()].into_iter().collect::<String>();
+                let val: f64 = attr.parse().expect("Failed to convert to float");
+                self.curr = self.chars.len();
+                Some(Token::Number(val))
+            }
+            6 => {
+                let attr = self.chars[self.curr .. self.chars.len()].into_iter().collect::<String>();
+                let val: f64 = attr.parse().expect("Failed to convert to float");
+                self.curr = self.chars.len();
+                Some(Token::Number(val))
+            }
+            7 => {
+                let attr = self.chars[self.curr .. self.chars.len()].into_iter().collect::<String>();
+                self.curr = self.chars.len();
+                Some(Token::StringLiteral(attr))
+            }
+            _ => None
+        }
+
     }
 }
