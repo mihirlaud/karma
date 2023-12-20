@@ -134,198 +134,87 @@ impl Parser {
                     }
                     GrammarSymbol::Nonterminal(nt) => {
                         let mut production: Vec<GrammarSymbol> = vec![];
+
                         match (nt.as_str(), token.clone()) {
                             ("block", Some(Token::LeftBrace)) => {
-                                stack.push_back(GrammarSymbol::Terminal(Token::RightBrace));
-                                stack
-                                    .push_back(GrammarSymbol::Nonterminal("stmt_list".to_string()));
-                                stack.push_back(GrammarSymbol::Terminal(Token::LeftBrace));
-                                println!("B -> {{ SL }}");
-
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Terminal(Token::LeftBrace));
-                                let next_idx = self.parse_tree.add_child(
-                                    idx,
+                                production = vec![
+                                    GrammarSymbol::Terminal(Token::LeftBrace),
                                     GrammarSymbol::Nonterminal("stmt_list".to_string()),
-                                );
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Terminal(Token::RightBrace));
-
-                                idx = next_idx;
+                                    GrammarSymbol::Terminal(Token::RightBrace),
+                                ];
+                                println!("B -> {{ SL }}");
                             }
                             ("stmt_list", Some(Token::Var))
                             | ("stmt_list", Some(Token::Const))
                             | ("stmt_list", Some(Token::While))
                             | ("stmt_list", Some(Token::If))
                             | ("stmt_list", Some(Token::ID(_))) => {
-                                stack
-                                    .push_back(GrammarSymbol::Nonterminal("stmt_list".to_string()));
-                                stack.push_back(GrammarSymbol::Nonterminal("stmt".to_string()));
-                                println!("SL -> S SL");
-
-                                let next_idx = self
-                                    .parse_tree
-                                    .add_child(idx, GrammarSymbol::Nonterminal("stmt".to_string()));
-                                self.parse_tree.add_child(
-                                    idx,
+                                production = vec![
+                                    GrammarSymbol::Nonterminal("stmt".to_string()),
                                     GrammarSymbol::Nonterminal("stmt_list".to_string()),
-                                );
-
-                                idx = next_idx;
+                                ];
+                                println!("SL -> S SL");
                             }
                             ("stmt_list", Some(Token::RightBrace)) => {
                                 println!("SL -> `");
-
-                                self.parse_tree.add_child(idx, GrammarSymbol::Empty);
-                                idx = self.parse_tree.get_next_nt_sibling(idx);
                             }
                             ("stmt", Some(Token::Var)) => {
-                                stack.push_back(GrammarSymbol::Terminal(Token::Semicolon));
-                                stack.push_back(GrammarSymbol::Nonterminal(
-                                    "expression".to_string(),
-                                ));
-                                stack.push_back(GrammarSymbol::Terminal(Token::Assign));
-                                stack.push_back(GrammarSymbol::Nonterminal("id".to_string()));
-                                stack.push_back(GrammarSymbol::Terminal(Token::Colon));
-                                stack.push_back(GrammarSymbol::Nonterminal("id".to_string()));
-                                stack.push_back(GrammarSymbol::Terminal(Token::Var));
-                                println!("S -> var IDENTIFIER : IDENTIFIER = E ;");
-
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Terminal(Token::Var));
-                                let next_idx = self
-                                    .parse_tree
-                                    .add_child(idx, GrammarSymbol::Nonterminal("id".to_string()));
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Terminal(Token::Colon));
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Nonterminal("id".to_string()));
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Terminal(Token::Assign));
-                                self.parse_tree.add_child(
-                                    idx,
+                                production = vec![
+                                    GrammarSymbol::Terminal(Token::Var),
+                                    GrammarSymbol::Nonterminal("id".to_string()),
+                                    GrammarSymbol::Terminal(Token::Colon),
+                                    GrammarSymbol::Nonterminal("id".to_string()),
+                                    GrammarSymbol::Terminal(Token::Assign),
                                     GrammarSymbol::Nonterminal("expression".to_string()),
-                                );
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Terminal(Token::Semicolon));
-
-                                idx = next_idx;
+                                    GrammarSymbol::Terminal(Token::Semicolon),
+                                ];
+                                println!("S -> var IDENTIFIER : IDENTIFIER = E ;");
                             }
                             ("stmt", Some(Token::Const)) => {
-                                stack.push_back(GrammarSymbol::Terminal(Token::Semicolon));
-                                stack.push_back(GrammarSymbol::Nonterminal(
-                                    "expression".to_string(),
-                                ));
-                                stack.push_back(GrammarSymbol::Terminal(Token::Assign));
-                                stack.push_back(GrammarSymbol::Nonterminal("id".to_string()));
-                                stack.push_back(GrammarSymbol::Terminal(Token::Colon));
-                                stack.push_back(GrammarSymbol::Nonterminal("id".to_string()));
-                                stack.push_back(GrammarSymbol::Terminal(Token::Const));
-                                println!("S -> const IDENTIFIER : IDENTIFIER = E ;");
-
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Terminal(Token::Const));
-                                let next_idx = self
-                                    .parse_tree
-                                    .add_child(idx, GrammarSymbol::Nonterminal("id".to_string()));
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Terminal(Token::Colon));
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Nonterminal("id".to_string()));
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Terminal(Token::Assign));
-                                self.parse_tree.add_child(
-                                    idx,
+                                production = vec![
+                                    GrammarSymbol::Terminal(Token::Const),
+                                    GrammarSymbol::Nonterminal("id".to_string()),
+                                    GrammarSymbol::Terminal(Token::Colon),
+                                    GrammarSymbol::Nonterminal("id".to_string()),
+                                    GrammarSymbol::Terminal(Token::Assign),
                                     GrammarSymbol::Nonterminal("expression".to_string()),
-                                );
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Terminal(Token::Semicolon));
-
-                                idx = next_idx;
+                                    GrammarSymbol::Terminal(Token::Semicolon),
+                                ];
+                                println!("S -> const IDENTIFIER : IDENTIFIER = E ;");
                             }
                             ("stmt", Some(Token::ID(_))) => {
-                                stack.push_back(GrammarSymbol::Terminal(Token::Semicolon));
-                                stack.push_back(GrammarSymbol::Nonterminal(
-                                    "expression".to_string(),
-                                ));
-                                stack.push_back(GrammarSymbol::Terminal(Token::Assign));
-                                stack.push_back(GrammarSymbol::Nonterminal("id".to_string()));
-                                println!("S -> id = E ;");
-
-                                let next_idx = self
-                                    .parse_tree
-                                    .add_child(idx, GrammarSymbol::Nonterminal("id".to_string()));
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Terminal(Token::Assign));
-                                self.parse_tree.add_child(
-                                    idx,
+                                production = vec![
+                                    GrammarSymbol::Nonterminal("id".to_string()),
+                                    GrammarSymbol::Terminal(Token::Assign),
                                     GrammarSymbol::Nonterminal("expression".to_string()),
-                                );
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Terminal(Token::Semicolon));
-
-                                idx = next_idx;
+                                    GrammarSymbol::Terminal(Token::Semicolon),
+                                ];
+                                println!("S -> id = E ;");
                             }
                             ("stmt", Some(Token::While)) => {
-                                stack.push_back(GrammarSymbol::Nonterminal("block".to_string()));
-                                stack.push_back(GrammarSymbol::Nonterminal(
-                                    "conditional".to_string(),
-                                ));
-                                stack.push_back(GrammarSymbol::Terminal(Token::While));
-                                println!("S -> while C B");
-
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Terminal(Token::While));
-                                let next_idx = self.parse_tree.add_child(
-                                    idx,
+                                production = vec![
+                                    GrammarSymbol::Terminal(Token::While),
                                     GrammarSymbol::Nonterminal("conditional".to_string()),
-                                );
-                                self.parse_tree.add_child(
-                                    idx,
                                     GrammarSymbol::Nonterminal("block".to_string()),
-                                );
+                                ];
 
-                                idx = next_idx;
+                                println!("S -> while C B");
                             }
                             ("stmt", Some(Token::If)) => {
-                                stack.push_back(GrammarSymbol::Nonterminal("optelse".to_string()));
-                                stack.push_back(GrammarSymbol::Nonterminal("block".to_string()));
-                                stack.push_back(GrammarSymbol::Nonterminal(
-                                    "conditional".to_string(),
-                                ));
-                                stack.push_back(GrammarSymbol::Terminal(Token::If));
-                                println!("S -> if C B optelse");
-
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Terminal(Token::If));
-                                let next_idx = self.parse_tree.add_child(
-                                    idx,
+                                production = vec![
+                                    GrammarSymbol::Terminal(Token::If),
                                     GrammarSymbol::Nonterminal("conditional".to_string()),
-                                );
-                                self.parse_tree.add_child(
-                                    idx,
                                     GrammarSymbol::Nonterminal("block".to_string()),
-                                );
-                                self.parse_tree.add_child(
-                                    idx,
                                     GrammarSymbol::Nonterminal("optelse".to_string()),
-                                );
-
-                                idx = next_idx;
+                                ];
+                                println!("S -> if C B optelse");
                             }
                             ("optelse", Some(Token::Else)) => {
-                                stack.push_back(GrammarSymbol::Nonterminal("block".to_string()));
-                                stack.push_back(GrammarSymbol::Terminal(Token::Else));
-                                println!("optelse -> else B");
-
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Terminal(Token::Else));
-                                let next_idx = self.parse_tree.add_child(
-                                    idx,
+                                production = vec![
+                                    GrammarSymbol::Terminal(Token::Else),
                                     GrammarSymbol::Nonterminal("block".to_string()),
-                                );
-
-                                idx = next_idx;
+                                ];
+                                println!("optelse -> else B");
                             }
                             ("optelse", Some(Token::Var))
                             | ("optelse", Some(Token::Const))
@@ -334,218 +223,94 @@ impl Parser {
                             | ("optelse", Some(Token::If))
                             | ("optelse", Some(Token::RightBrace)) => {
                                 println!("optelse -> `");
-
-                                self.parse_tree.add_child(idx, GrammarSymbol::Empty);
-                                idx = self.parse_tree.get_next_nt_sibling(idx);
                             }
                             ("conditional", Some(Token::ID(_)))
                             | ("conditional", Some(Token::LeftParen))
                             | ("conditional", Some(Token::Number(_))) => {
-                                stack.push_back(GrammarSymbol::Nonterminal(
-                                    "conditional1".to_string(),
-                                ));
-                                stack
-                                    .push_back(GrammarSymbol::Nonterminal("bool_expr".to_string()));
-                                println!("C -> bE C'");
-
-                                let next_idx = self.parse_tree.add_child(
-                                    idx,
+                                production = vec![
                                     GrammarSymbol::Nonterminal("bool_expr".to_string()),
-                                );
-                                self.parse_tree.add_child(
-                                    idx,
                                     GrammarSymbol::Nonterminal("conditional1".to_string()),
-                                );
-
-                                idx = next_idx;
+                                ];
+                                println!("C -> bE C'");
                             }
                             ("bool_expr", Some(Token::ID(_)))
                             | ("bool_expr", Some(Token::Number(_)))
                             | ("bool_expr", Some(Token::LeftParen)) => {
-                                stack.push_back(GrammarSymbol::Nonterminal(
-                                    "expression".to_string(),
-                                ));
-                                stack.push_back(GrammarSymbol::Nonterminal(
-                                    "comparison".to_string(),
-                                ));
-                                stack.push_back(GrammarSymbol::Nonterminal(
-                                    "expression".to_string(),
-                                ));
-                                println!("bE -> E comp E");
-
-                                let next_idx = self.parse_tree.add_child(
-                                    idx,
+                                production = vec![
                                     GrammarSymbol::Nonterminal("expression".to_string()),
-                                );
-                                self.parse_tree.add_child(
-                                    idx,
                                     GrammarSymbol::Nonterminal("comparison".to_string()),
-                                );
-
-                                self.parse_tree.add_child(
-                                    idx,
                                     GrammarSymbol::Nonterminal("expression".to_string()),
-                                );
+                                ];
 
-                                idx = next_idx;
+                                println!("bE -> E comp E");
                             }
                             ("comparison", Some(Token::Equals)) => {
-                                stack.push_back(GrammarSymbol::Terminal(Token::Equals));
+                                production = vec![GrammarSymbol::Terminal(Token::Equals)];
                                 println!("comp -> ==");
-
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Terminal(Token::Equals));
-
-                                idx = self.parse_tree.get_next_nt_sibling(idx);
                             }
                             ("comparison", Some(Token::Neq)) => {
-                                stack.push_back(GrammarSymbol::Terminal(Token::Neq));
+                                production = vec![GrammarSymbol::Terminal(Token::Neq)];
                                 println!("comp -> !=");
-
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Terminal(Token::Neq));
-                                idx = self.parse_tree.get_next_nt_sibling(idx);
                             }
                             ("comparison", Some(Token::Less)) => {
-                                stack.push_back(GrammarSymbol::Terminal(Token::Less));
+                                production = vec![GrammarSymbol::Terminal(Token::Less)];
                                 println!("comp -> <");
-
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Terminal(Token::Less));
-                                idx = self.parse_tree.get_next_nt_sibling(idx);
                             }
                             ("comparison", Some(Token::Greater)) => {
-                                stack.push_back(GrammarSymbol::Terminal(Token::Greater));
+                                production = vec![GrammarSymbol::Terminal(Token::Greater)];
                                 println!("comp -> >");
-
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Terminal(Token::Greater));
-                                idx = self.parse_tree.get_next_nt_sibling(idx);
                             }
                             ("comparison", Some(Token::Leq)) => {
-                                stack.push_back(GrammarSymbol::Terminal(Token::Leq));
+                                production = vec![GrammarSymbol::Terminal(Token::Leq)];
                                 println!("comp -> <=");
-
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Terminal(Token::Leq));
-                                idx = self.parse_tree.get_next_nt_sibling(idx);
                             }
                             ("comparison", Some(Token::Geq)) => {
-                                stack.push_back(GrammarSymbol::Terminal(Token::Geq));
+                                production = vec![GrammarSymbol::Terminal(Token::Geq)];
                                 println!("comp -> >=");
-
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Terminal(Token::Geq));
-                                idx = self.parse_tree.get_next_nt_sibling(idx);
                             }
                             ("conditional1", Some(Token::LogicalAnd)) => {
-                                stack.push_back(GrammarSymbol::Nonterminal(
-                                    "conditional1".to_string(),
-                                ));
-                                stack
-                                    .push_back(GrammarSymbol::Nonterminal("bool_expr".to_string()));
-                                stack.push_back(GrammarSymbol::Terminal(Token::LogicalAnd));
-                                println!("C' -> && bE C'");
-
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Terminal(Token::LogicalAnd));
-                                let next_idx = self.parse_tree.add_child(
-                                    idx,
+                                production = vec![
+                                    GrammarSymbol::Terminal(Token::LogicalAnd),
                                     GrammarSymbol::Nonterminal("bool_expr".to_string()),
-                                );
-                                self.parse_tree.add_child(
-                                    idx,
                                     GrammarSymbol::Nonterminal("conditional1".to_string()),
-                                );
-
-                                idx = next_idx;
+                                ];
+                                println!("C' -> && bE C'");
                             }
                             ("conditional1", Some(Token::LogicalOr)) => {
-                                stack.push_back(GrammarSymbol::Nonterminal(
-                                    "conditional1".to_string(),
-                                ));
-                                stack
-                                    .push_back(GrammarSymbol::Nonterminal("bool_expr".to_string()));
-                                stack.push_back(GrammarSymbol::Terminal(Token::LogicalOr));
-                                println!("C' -> || bE C'");
-
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Terminal(Token::LogicalOr));
-                                let next_idx = self.parse_tree.add_child(
-                                    idx,
+                                production = vec![
+                                    GrammarSymbol::Terminal(Token::LogicalOr),
                                     GrammarSymbol::Nonterminal("bool_expr".to_string()),
-                                );
-                                self.parse_tree.add_child(
-                                    idx,
                                     GrammarSymbol::Nonterminal("conditional1".to_string()),
-                                );
-
-                                idx = next_idx;
+                                ];
+                                println!("C' -> || bE C'");
                             }
                             ("conditional1", Some(Token::LeftBrace)) => {
                                 println!("C' -> `");
-
-                                self.parse_tree.add_child(idx, GrammarSymbol::Empty);
-                                idx = self.parse_tree.get_next_nt_sibling(idx);
                             }
                             ("expression", Some(Token::ID(_)))
                             | ("expression", Some(Token::Number(_)))
                             | ("expression", Some(Token::LeftParen)) => {
-                                stack.push_back(GrammarSymbol::Nonterminal(
-                                    "expression1".to_string(),
-                                ));
-                                stack.push_back(GrammarSymbol::Nonterminal("term".to_string()));
-                                println!("E -> T E'");
-
-                                let next_idx = self
-                                    .parse_tree
-                                    .add_child(idx, GrammarSymbol::Nonterminal("term".to_string()));
-                                self.parse_tree.add_child(
-                                    idx,
+                                production = vec![
+                                    GrammarSymbol::Nonterminal("term".to_string()),
                                     GrammarSymbol::Nonterminal("expression1".to_string()),
-                                );
-
-                                idx = next_idx;
+                                ];
+                                println!("E -> T E'");
                             }
                             ("expression1", Some(Token::Add)) => {
-                                stack.push_back(GrammarSymbol::Nonterminal(
-                                    "expression1".to_string(),
-                                ));
-                                stack.push_back(GrammarSymbol::Nonterminal("term".to_string()));
-                                stack.push_back(GrammarSymbol::Terminal(Token::Add));
-                                println!("E' -> + T E'");
-
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Terminal(Token::Add));
-                                let next_idx = self
-                                    .parse_tree
-                                    .add_child(idx, GrammarSymbol::Nonterminal("term".to_string()));
-                                self.parse_tree.add_child(
-                                    idx,
+                                production = vec![
+                                    GrammarSymbol::Terminal(Token::Add),
+                                    GrammarSymbol::Nonterminal("term".to_string()),
                                     GrammarSymbol::Nonterminal("expression1".to_string()),
-                                );
-
-                                idx = next_idx;
+                                ];
+                                println!("E' -> + T E'");
                             }
                             ("expression1", Some(Token::Sub)) => {
-                                stack.push_back(GrammarSymbol::Nonterminal(
-                                    "expression1".to_string(),
-                                ));
-                                stack.push_back(GrammarSymbol::Nonterminal("term".to_string()));
-                                stack.push_back(GrammarSymbol::Terminal(Token::Sub));
-                                println!("E' -> - T E'");
-
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Terminal(Token::Sub));
-                                let next_idx = self
-                                    .parse_tree
-                                    .add_child(idx, GrammarSymbol::Nonterminal("term".to_string()));
-                                self.parse_tree.add_child(
-                                    idx,
+                                production = vec![
+                                    GrammarSymbol::Terminal(Token::Sub),
+                                    GrammarSymbol::Nonterminal("term".to_string()),
                                     GrammarSymbol::Nonterminal("expression1".to_string()),
-                                );
-
-                                idx = next_idx;
+                                ];
+                                println!("E' -> - T E'");
                             }
                             ("expression1", Some(Token::RightParen))
                             | ("expression1", Some(Token::Semicolon))
@@ -557,65 +322,31 @@ impl Parser {
                             | ("expression1", Some(Token::Geq))
                             | ("expression1", Some(Token::LeftBrace)) => {
                                 println!("E' -> `");
-
-                                self.parse_tree.add_child(idx, GrammarSymbol::Empty);
-                                idx = self.parse_tree.get_next_nt_sibling(idx);
                             }
                             ("term", Some(Token::ID(_)))
                             | ("term", Some(Token::Number(_)))
                             | ("term", Some(Token::LeftParen)) => {
-                                stack.push_back(GrammarSymbol::Nonterminal("term1".to_string()));
-                                stack.push_back(GrammarSymbol::Nonterminal("factor".to_string()));
-                                println!("T -> F T'");
-
-                                let next_idx = self.parse_tree.add_child(
-                                    idx,
+                                production = vec![
                                     GrammarSymbol::Nonterminal("factor".to_string()),
-                                );
-                                self.parse_tree.add_child(
-                                    idx,
                                     GrammarSymbol::Nonterminal("term1".to_string()),
-                                );
-
-                                idx = next_idx;
+                                ];
+                                println!("T -> F T'");
                             }
                             ("term1", Some(Token::Mul)) => {
-                                stack.push_back(GrammarSymbol::Nonterminal("term1".to_string()));
-                                stack.push_back(GrammarSymbol::Nonterminal("factor".to_string()));
-                                stack.push_back(GrammarSymbol::Terminal(Token::Mul));
-                                println!("T' -> * F T'");
-
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Terminal(Token::Mul));
-                                let next_idx = self.parse_tree.add_child(
-                                    idx,
+                                production = vec![
+                                    GrammarSymbol::Terminal(Token::Mul),
                                     GrammarSymbol::Nonterminal("factor".to_string()),
-                                );
-                                self.parse_tree.add_child(
-                                    idx,
                                     GrammarSymbol::Nonterminal("term1".to_string()),
-                                );
-
-                                idx = next_idx;
+                                ];
+                                println!("T' -> * F T'");
                             }
                             ("term1", Some(Token::Div)) => {
-                                stack.push_back(GrammarSymbol::Nonterminal("term1".to_string()));
-                                stack.push_back(GrammarSymbol::Nonterminal("factor".to_string()));
-                                stack.push_back(GrammarSymbol::Terminal(Token::Div));
-                                println!("T' -> / F T'");
-
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Terminal(Token::Div));
-                                let next_idx = self.parse_tree.add_child(
-                                    idx,
+                                production = vec![
+                                    GrammarSymbol::Terminal(Token::Div),
                                     GrammarSymbol::Nonterminal("factor".to_string()),
-                                );
-                                self.parse_tree.add_child(
-                                    idx,
                                     GrammarSymbol::Nonterminal("term1".to_string()),
-                                );
-
-                                idx = next_idx;
+                                ];
+                                println!("T' -> / F T'");
                             }
                             ("term1", Some(Token::Add))
                             | ("term1", Some(Token::Sub))
@@ -629,57 +360,61 @@ impl Parser {
                             | ("term1", Some(Token::Geq))
                             | ("term1", Some(Token::LeftBrace)) => {
                                 println!("T' -> `");
-
-                                self.parse_tree.add_child(idx, GrammarSymbol::Empty);
-                                idx = self.parse_tree.get_next_nt_sibling(idx);
                             }
                             ("factor", Some(Token::LeftParen)) => {
-                                stack.push_back(GrammarSymbol::Terminal(Token::RightParen));
-                                stack.push_back(GrammarSymbol::Nonterminal(
-                                    "expression".to_string(),
-                                ));
-                                stack.push_back(GrammarSymbol::Terminal(Token::LeftParen));
-                                println!("F -> ( E )");
-
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Terminal(Token::LeftParen));
-                                let next_idx = self.parse_tree.add_child(
-                                    idx,
+                                production = vec![
+                                    GrammarSymbol::Terminal(Token::LeftParen),
                                     GrammarSymbol::Nonterminal("expression".to_string()),
-                                );
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Terminal(Token::RightParen));
-
-                                idx = next_idx;
+                                    GrammarSymbol::Terminal(Token::RightParen),
+                                ];
+                                println!("F -> ( E )");
                             }
                             ("factor", Some(Token::ID(_))) => {
-                                stack.push_back(GrammarSymbol::Nonterminal("id".to_string()));
+                                production = vec![GrammarSymbol::Nonterminal("id".to_string())];
                                 println!("F -> id");
-
-                                idx = self
-                                    .parse_tree
-                                    .add_child(idx, GrammarSymbol::Nonterminal("id".to_string()));
                             }
                             ("factor", Some(Token::Number(num))) => {
-                                stack.push_back(GrammarSymbol::Terminal(Token::Number(num)));
+                                production = vec![GrammarSymbol::Terminal(Token::Number(num))];
                                 println!("F -> NUMBER");
-
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Terminal(Token::Number(num)));
-
-                                idx = self.parse_tree.get_next_nt_sibling(idx);
                             }
                             ("id", Some(Token::ID(id))) => {
-                                stack.push_back(GrammarSymbol::Terminal(Token::ID(id.clone())));
+                                production = vec![GrammarSymbol::Terminal(Token::ID(id.clone()))];
                                 println!("id -> IDENTIFIER");
-
-                                self.parse_tree
-                                    .add_child(idx, GrammarSymbol::Terminal(Token::ID(id)));
-                                idx = self.parse_tree.get_next_nt_sibling(idx);
                             }
                             _ => {
                                 return Err(format!("syntax error: {:?} {:?}", nt, token));
                             }
+                        }
+
+                        if production.len() == 0 {
+                            self.parse_tree.add_child(idx, GrammarSymbol::Empty);
+                            idx = self.parse_tree.get_next_nt_sibling(idx);
+                            continue;
+                        }
+
+                        production.iter().rev().for_each(|symbol| {
+                            stack.push_back(symbol.clone());
+                        });
+
+                        let mut has_nt = false;
+                        let mut next_idx = 0;
+                        production.iter().for_each(|symbol| {
+                            let i = self.parse_tree.add_child(idx, symbol.clone());
+                            match symbol.clone() {
+                                GrammarSymbol::Nonterminal(_) => {
+                                    if !has_nt {
+                                        has_nt = true;
+                                        next_idx = i;
+                                    }
+                                }
+                                _ => {}
+                            }
+                        });
+
+                        if has_nt {
+                            idx = next_idx as usize;
+                        } else {
+                            idx = self.parse_tree.get_next_nt_sibling(idx);
                         }
                     }
                     GrammarSymbol::Empty => {}
