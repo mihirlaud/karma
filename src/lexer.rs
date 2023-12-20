@@ -1,25 +1,26 @@
-use std::io::{BufRead, BufReader};
-use std::fs::File;
 use phf::phf_map;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 
 static KEYWORDS: phf::Map<&'static str, Token> = phf_map! {
-    "node" => Token::Node, 
+    "node" => Token::Node,
     "export" => Token::Export,
     "var" => Token::Var, "const" => Token::Const,
-    "fn" => Token::Fn, 
+    "fn" => Token::Fn,
     "while" => Token::While,
     "true" => Token::True, "false" => Token::False,
     "if" => Token::If, "else" => Token::Else
 };
 
 static SYMBOLS: phf::Map<&'static str, Token> = phf_map! {
-    "=" => Token::Assign, 
+    "=" => Token::Assign,
     "+" => Token::Add, "-" => Token::Sub, "*" => Token::Mul, "/" => Token::Div,
     "+=" => Token::AddAssign, "-=" => Token::SubAssign, "*=" => Token::MulAssign, "/=" => Token::DivAssign,
     "(" => Token::LeftParen, ")" => Token::RightParen, "[" => Token::LeftBracket, "]" => Token::RightBracket, "{" => Token::LeftBrace, "}" => Token::RightBrace,
-    ";" => Token::Semicolon, ":" => Token::Colon, "::" => Token::DoubleColon, 
+    ";" => Token::Semicolon, ":" => Token::Colon, "::" => Token::DoubleColon,
     "->" => Token::Arrow, "." => Token::Dot, "," => Token::Comma,
     "==" => Token::Equals, "!" => Token::Not, "<" => Token::Less, ">" => Token::Greater, "<=" => Token::Leq, ">=" => Token::Geq, "!=" => Token::Neq,
+    "&&" => Token::LogicalAnd, "||" => Token::LogicalOr, "&" => Token::BitwiseAnd, "|" => Token::BitwiseOr,
 };
 
 #[derive(Clone, PartialEq, Debug)]
@@ -64,7 +65,11 @@ pub enum Token {
     Greater,
     Leq,
     Geq,
-    Neq
+    Neq,
+    LogicalAnd,
+    LogicalOr,
+    BitwiseAnd,
+    BitwiseOr,
 }
 
 impl std::fmt::Display for Token {
@@ -111,6 +116,10 @@ impl std::fmt::Display for Token {
             Token::Leq => write!(f, "<="),
             Token::Geq => write!(f, ">="),
             Token::Neq => write!(f, "!="),
+            Token::LogicalAnd => write!(f, "&&"),
+            Token::LogicalOr => write!(f, "||"),
+            Token::BitwiseAnd => write!(f, "&"),
+            Token::BitwiseOr => write!(f, "|"),
         }
     }
 }
@@ -122,10 +131,7 @@ pub struct Lexer {
 
 impl Lexer {
     pub fn new(filename: &str) -> Self {
-        let f = BufReader::new(
-            File::open(filename)
-            .expect("Could not open file")
-        );
+        let f = BufReader::new(File::open(filename).expect("Could not open file"));
 
         let mut chars = vec![];
 
@@ -135,10 +141,7 @@ impl Lexer {
             }
         }
 
-        Self {
-            chars,
-            curr: 0,
-        }
+        Self { chars, curr: 0 }
     }
 
     pub fn next_token(&mut self) -> Option<Token> {
@@ -199,7 +202,14 @@ impl Lexer {
                         return Some(Token::Comma);
                     }
 
-                    if c == '+' || c == '*' || c =='/' || c == '=' || c == '!' || c == '<' || c == '>' {
+                    if c == '+'
+                        || c == '*'
+                        || c == '/'
+                        || c == '='
+                        || c == '!'
+                        || c == '<'
+                        || c == '>'
+                    {
                         state = 1;
                     }
 
@@ -222,10 +232,20 @@ impl Lexer {
                     if c == '"' {
                         state = 7;
                     }
+
+                    if c == '&' {
+                        state = 8;
+                    }
+
+                    if c == '|' {
+                        state = 9;
+                    }
                 }
                 1 => {
                     if c == '=' {
-                        let attr = self.chars[self.curr .. forward + 1].into_iter().collect::<String>();
+                        let attr = self.chars[self.curr..forward + 1]
+                            .into_iter()
+                            .collect::<String>();
                         self.curr = forward + 1;
                         return Some(SYMBOLS[attr.as_str()].clone());
                     } else {
@@ -257,7 +277,9 @@ impl Lexer {
                 }
                 4 => {
                     if !(c.is_ascii_alphanumeric() || c == '_') {
-                        let attr = self.chars[self.curr .. forward].into_iter().collect::<String>();
+                        let attr = self.chars[self.curr..forward]
+                            .into_iter()
+                            .collect::<String>();
                         self.curr = forward;
 
                         if KEYWORDS.contains_key(attr.as_str()) {
@@ -271,7 +293,9 @@ impl Lexer {
                     if c == '.' {
                         state = 6;
                     } else if !(c.is_ascii_digit()) {
-                        let attr = self.chars[self.curr .. forward].into_iter().collect::<String>();
+                        let attr = self.chars[self.curr..forward]
+                            .into_iter()
+                            .collect::<String>();
                         let val: f64 = attr.parse().expect("Failed to convert to float");
                         self.curr = forward;
                         return Some(Token::Number(val));
@@ -279,7 +303,9 @@ impl Lexer {
                 }
                 6 => {
                     if !(c.is_ascii_digit()) {
-                        let attr = self.chars[self.curr .. forward].into_iter().collect::<String>();
+                        let attr = self.chars[self.curr..forward]
+                            .into_iter()
+                            .collect::<String>();
                         let val: f64 = attr.parse().expect("Failed to convert to float");
                         self.curr = forward;
                         return Some(Token::Number(val));
@@ -287,9 +313,29 @@ impl Lexer {
                 }
                 7 => {
                     if c == '"' {
-                        let attr = self.chars[self.curr .. forward + 1].into_iter().collect::<String>();
+                        let attr = self.chars[self.curr..forward + 1]
+                            .into_iter()
+                            .collect::<String>();
                         self.curr = forward + 1;
                         return Some(Token::StringLiteral(attr));
+                    }
+                }
+                8 => {
+                    if c == '&' {
+                        self.curr = forward + 1;
+                        return Some(Token::LogicalAnd);
+                    } else {
+                        self.curr = forward;
+                        return Some(Token::BitwiseAnd);
+                    }
+                }
+                9 => {
+                    if c == '|' {
+                        self.curr = forward + 1;
+                        return Some(Token::LogicalAnd);
+                    } else {
+                        self.curr = forward;
+                        return Some(Token::BitwiseAnd);
                     }
                 }
                 _ => {}
@@ -300,7 +346,9 @@ impl Lexer {
 
         match state {
             4 => {
-                let attr = self.chars[self.curr .. self.chars.len()].into_iter().collect::<String>();
+                let attr = self.chars[self.curr..self.chars.len()]
+                    .into_iter()
+                    .collect::<String>();
                 self.curr = self.chars.len();
 
                 if KEYWORDS.contains_key(attr.as_str()) {
@@ -310,24 +358,29 @@ impl Lexer {
                 }
             }
             5 => {
-                let attr = self.chars[self.curr .. self.chars.len()].into_iter().collect::<String>();
+                let attr = self.chars[self.curr..self.chars.len()]
+                    .into_iter()
+                    .collect::<String>();
                 let val: f64 = attr.parse().expect("Failed to convert to float");
                 self.curr = self.chars.len();
                 Some(Token::Number(val))
             }
             6 => {
-                let attr = self.chars[self.curr .. self.chars.len()].into_iter().collect::<String>();
+                let attr = self.chars[self.curr..self.chars.len()]
+                    .into_iter()
+                    .collect::<String>();
                 let val: f64 = attr.parse().expect("Failed to convert to float");
                 self.curr = self.chars.len();
                 Some(Token::Number(val))
             }
             7 => {
-                let attr = self.chars[self.curr .. self.chars.len()].into_iter().collect::<String>();
+                let attr = self.chars[self.curr..self.chars.len()]
+                    .into_iter()
+                    .collect::<String>();
                 self.curr = self.chars.len();
                 Some(Token::StringLiteral(attr))
             }
-            _ => None
+            _ => None,
         }
-
     }
 }

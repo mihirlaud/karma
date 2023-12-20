@@ -1,1 +1,21 @@
-var id1: i32 = 5 * id3 + (id4 / 6);
+{
+    const limit: u32 = 100;
+    var a: u32 = 0;
+    var b: u32 = 1;
+    var n: u32 = 10;
+
+    while n > 0 {
+        c = a + b;
+        a = b;
+        b = c;
+
+        n = n - 1;
+    }
+
+    if a >= limit {
+        a = limit;
+    } else {
+        b = a;
+        c = a;
+    }
+}
