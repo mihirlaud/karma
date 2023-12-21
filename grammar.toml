@@ -1,3 +1,78 @@
+[program]
+prods = [
+    ["node_nt", "program"],
+    [""]
+]
+first = ["node", ""]
+follow = ["$"]
+
+[node_nt]
+prods = [
+    ["node", "node_header", "node_block"]
+]
+first = ["node"]
+follow = ["node", "$"]
+
+[node_header]
+prods = [
+    ["id", ":", "id_list"]
+]
+first = ["IDENTIFIER"]
+follow = ["{"]
+
+[node_block]
+prods = [
+    ["{", "top_level_stmt_list", "}"]
+]
+first = ["{"]
+follow = ["node", "$"]
+
+[top_level_stmt_list]
+prods = [
+    ["top_level_stmt", "top_level_stmt_list"],
+    [""]
+]
+first = ["fn"]
+follow = ["}"]
+
+[top_level_stmt]
+prods = [
+    ["func"]
+]
+first = ["fn"]
+follow = ["fn", "}"]
+
+[func]
+prods = [
+    ["fn", "id", "(", "param_list", ")", "->", "return_type", "block"]
+]
+first = ["fn"]
+follow = ["$"]
+
+[return_type]
+prods = [
+    ["id"],
+    ["(", ")"],
+    ["!"]
+]
+first = ["IDENTIFIER", "(", "!"]
+follow = ["{"]
+
+[param_list]
+prods = [
+    ["param", ",", "param_list"],
+    [""]
+]
+first = ["IDENTIFIER", ""]
+follow = [")"]
+
+[param]
+prods = [
+    ["id", ":", "id"],
+]
+first = ["IDENTIFIER"]
+follow = [","]
+
 [block]
 prods = [
     ["{", "stmt_list", "}"]

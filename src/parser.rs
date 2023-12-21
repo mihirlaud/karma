@@ -2,19 +2,8 @@ use crate::lexer::{Lexer, Token};
 use std::collections::{HashMap, LinkedList};
 
 #[derive(Debug)]
-pub struct Node {
-    sym: GrammarSymbol,
-}
-
-impl Node {
-    fn new(sym: GrammarSymbol) -> Self {
-        Self { sym }
-    }
-}
-
-#[derive(Debug)]
 pub struct ParseTree {
-    node_list: Vec<Node>,
+    node_list: Vec<GrammarSymbol>,
     adj_list: HashMap<usize, Vec<usize>>,
     parents_list: HashMap<usize, usize>,
 }
@@ -30,15 +19,15 @@ impl ParseTree {
 
     pub fn set_root(&mut self, sym: GrammarSymbol) {
         if self.node_list.len() == 0 {
-            self.node_list.push(Node::new(sym));
+            self.node_list.push(sym);
         } else {
-            self.node_list[0] = Node::new(sym);
+            self.node_list[0] = sym;
         }
     }
 
     pub fn add_child(&mut self, idx: usize, sym: GrammarSymbol) -> usize {
         let new_idx = self.node_list.len();
-        let new_node = Node::new(sym);
+        let new_node = sym;
         self.node_list.push(new_node);
 
         let mut neighbors = match self.adj_list.get(&idx) {
@@ -66,7 +55,7 @@ impl ParseTree {
             let mut flag = false;
             for sibling in siblings {
                 if flag {
-                    match self.node_list[sibling].sym {
+                    match self.node_list[sibling] {
                         GrammarSymbol::Nonterminal(_) => {
                             return sibling;
                         }
@@ -109,10 +98,10 @@ impl Parser {
         let mut stack: LinkedList<GrammarSymbol> = LinkedList::new();
 
         stack.push_back(GrammarSymbol::End);
-        stack.push_back(GrammarSymbol::Nonterminal("block".to_string()));
+        stack.push_back(GrammarSymbol::Nonterminal("func".to_string()));
 
         self.parse_tree
-            .set_root(GrammarSymbol::Nonterminal("block".to_string()));
+            .set_root(GrammarSymbol::Nonterminal("func".to_string()));
         let mut idx = 0;
 
         loop {
@@ -136,6 +125,52 @@ impl Parser {
                         let mut production: Vec<GrammarSymbol> = vec![];
 
                         match (nt.as_str(), token.clone()) {
+                            ("func", Some(Token::Fn)) => {
+                                production = vec![
+                                    GrammarSymbol::Terminal(Token::Fn),
+                                    GrammarSymbol::Nonterminal("id".to_string()),
+                                    GrammarSymbol::Terminal(Token::LeftParen),
+                                    GrammarSymbol::Nonterminal("param_list".to_string()),
+                                    GrammarSymbol::Terminal(Token::RightParen),
+                                    GrammarSymbol::Terminal(Token::Arrow),
+                                    GrammarSymbol::Nonterminal("return_type".to_string()),
+                                    GrammarSymbol::Nonterminal("block".to_string()),
+                                ];
+                                println!("Fn -> fn id ( param_list ) -> return_type B");
+                            }
+                            ("return_type", Some(Token::ID(_))) => {
+                                production = vec![GrammarSymbol::Nonterminal("id".to_string())];
+                                println!("return_type -> id");
+                            }
+                            ("return_type", Some(Token::LeftParen)) => {
+                                production = vec![
+                                    GrammarSymbol::Terminal(Token::LeftParen),
+                                    GrammarSymbol::Terminal(Token::RightParen),
+                                ];
+                                println!("return_type -> ( )");
+                            }
+                            ("return_type", Some(Token::Not)) => {
+                                production = vec![GrammarSymbol::Terminal(Token::Not)];
+                                println!("return_type -> !");
+                            }
+                            ("param_list", Some(Token::ID(_))) => {
+                                production = vec![
+                                    GrammarSymbol::Nonterminal("param".to_string()),
+                                    GrammarSymbol::Terminal(Token::Comma),
+                                    GrammarSymbol::Nonterminal("param_list".to_string()),
+                                ];
+                                println!("param_list -> param , param_list");
+                            }
+                            ("param_list", Some(Token::RightParen)) => {
+                                println!("param_list -> `");
+                            }
+                            ("param", Some(Token::ID(_))) => {
+                                production = vec![
+                                    GrammarSymbol::Nonterminal("id".to_string()),
+                                    GrammarSymbol::Terminal(Token::Colon),
+                                    GrammarSymbol::Nonterminal("id".to_string()),
+                                ];
+                            }
                             ("block", Some(Token::LeftBrace)) => {
                                 production = vec![
                                     GrammarSymbol::Terminal(Token::LeftBrace),
@@ -449,7 +484,7 @@ impl Parser {
                     });
                 }
                 None => {
-                    println!("{:?}", self.parse_tree.node_list[curr].sym);
+                    println!("{:?}", self.parse_tree.node_list[curr]);
                 }
             }
         }
