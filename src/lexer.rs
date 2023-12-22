@@ -9,7 +9,8 @@ static KEYWORDS: phf::Map<&'static str, Token> = phf_map! {
     "fn" => Token::Fn,
     "while" => Token::While,
     "true" => Token::True, "false" => Token::False,
-    "if" => Token::If, "else" => Token::Else
+    "if" => Token::If, "else" => Token::Else,
+    "return" => Token::Return,
 };
 
 static SYMBOLS: phf::Map<&'static str, Token> = phf_map! {
@@ -70,6 +71,7 @@ pub enum Token {
     LogicalOr,
     BitwiseAnd,
     BitwiseOr,
+    Return,
 }
 
 impl std::fmt::Display for Token {
@@ -120,6 +122,7 @@ impl std::fmt::Display for Token {
             Token::LogicalOr => write!(f, "||"),
             Token::BitwiseAnd => write!(f, "&"),
             Token::BitwiseOr => write!(f, "|"),
+            Token::Return => write!(f, "return"),
         }
     }
 }

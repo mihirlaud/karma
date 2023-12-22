@@ -1,20 +1,26 @@
-fn main() -> () {
-    const limit: u32 = 100;
-    var a: u32 = 0;
-    var b: u32 = 1;
-    var n: u32 = 10;
-
-    while n > 0 {
-        c = a + b;
-        a = b;
-        b = c;
-
-        n = n - 1;
+node HelloKarma {
+    fn decrement(n: i32) -> i32 {
+        return n - 1;
     }
 
-    if a >= limit {
-        a = limit;
-    } else {
-        a = 0;
+    fn main() -> () {
+        const limit: u32 = 100;
+        var a: u32 = 0;
+        var b: u32 = 1;
+        var n: i32 = 10;
+
+        while n > 0 {
+            c = a + b;
+            a = b;
+            b = c;
+
+            n = decrement(n);
+        }
+
+        if a >= limit {
+            a = limit;
+        } else {
+            a = 0;
+        }
     }
 }
