@@ -9,7 +9,7 @@ node HelloKarma {
         var b: u32 = 1;
         var n: i32 = 10;
 
-        while n > 0 {
+        while n > 0 && a < limit {
             c = a + b;
             a = b;
             b = c;

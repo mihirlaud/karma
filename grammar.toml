@@ -123,12 +123,20 @@ follow = ["}"]
 prods = [
     ["var", "id", ":", "id", "=", "expression", ";"],
     ["const", "id", ":", "id", "=", "expression", ";"],
-    ["id", "=", "expression", ";"],
+    ["id", "assign_or_fn_call"],
     ["while", "conditional", "block"],
     ["if", "conditional", "block", "optelse"],
     ["return", "expression", ";"],
 ]
 first = ["var", "const", "IDENTIFIER", "while", "if", "return"]
+follow = ["var", "const", "IDENTIFIER", "while", "if", "return", "}"]
+
+[assign_or_fn_call]
+prods = [
+    ["=", "expression", ";"],
+    ["(", "input_list", ")", ";"]
+]
+first = ["=", "("]
 follow = ["var", "const", "IDENTIFIER", "while", "if", "return", "}"]
 
 [optelse]
@@ -144,7 +152,7 @@ prods = [
     ["term", "expression1"]
 ]
 first = ["(", "IDENTIFIER", "NUMBER"]
-follow = [")", ";", "==", "!=", "<", ">", "<=", ">=", "{"]
+follow = [")", ";", "==", "!=", "<", ">", "<=", ">=", "&&", "||", "{"]
 
 [expression1]
 prods = [
@@ -153,14 +161,14 @@ prods = [
     [""]
 ]
 first = ["+", "-", ""]
-follow = [")", ";", "==", "!=", "<", ">", "<=", ">=", "{"]
+follow = [")", ";", "==", "!=", "<", ">", "<=", ">=", "&&", "||", "{"]
 
 [term]
 prods = [
     ["factor", "term1"]
 ]
 first = ["(", "IDENTIFIER", "NUMBER"]
-follow = ["+", "-", ")", ";", "==", "!=", "<", ">", "<=", ">=", "{"]
+follow = ["+", "-", ")", ";", "==", "!=", "<", ">", "<=", ">=", "&&", "||", "{"]
 
 [term1]
 prods = [
@@ -169,7 +177,7 @@ prods = [
     [""]
 ]
 first = ["*", "/", ""]
-follow = ["+", "-", ")", ";", "==", "!=", "<", ">", "<=", ">=", "{"]
+follow = ["+", "-", ")", ";", "==", "!=", "<", ">", "<=", ">=", "&&", "||", "{"]
 
 [factor]
 prods = [
@@ -178,7 +186,7 @@ prods = [
     ["NUMBER"]
 ]
 first = ["(", "IDENTIFIER", "NUMBER"]
-follow = ["*", "/", "+", "-", ")", ";", "==", "!=", "<", ">", "<=", ">=", "{"]
+follow = ["*", "/", "+", "-", ")", ";", "==", "!=", "<", ">", "<=", ">=", "&&", "||", "{"]
 
 [id_or_fn]
 prods = [
@@ -186,7 +194,7 @@ prods = [
     [""]
 ]
 first = ["(", ""]
-follow = ["*", "/", "+", "-", ")", ";", "==", "!=", "<", ">", "<=", ">=", "{"]
+follow = ["*", "/", "+", "-", ")", ";", "==", "!=", "<", ">", "<=", ">=", "&&", "||", "{"]
 
 [id]
 prods = [
@@ -205,7 +213,7 @@ follow = [")"]
 
 [input_rest]
 prods = [
-    [",", "id_list"],
+    [",", "input_list"],
     [""]
 ]
 first = [",", ""]
@@ -213,19 +221,34 @@ follow = [")"]
 
 [conditional]
 prods = [
-    ["bool_expr", "conditional1"]
+    ["bool_term", "conditional1"]
 ]
 first = ["(", "IDENTIFIER", "NUMBER"]
 follow = ["{"]
 
 [conditional1]
 prods = [
-    ["&&", "bool_expr", "conditional1"],
-    ["||", "bool_expr", "conditional1"],
+    ["||", "bool_term", "conditional1"],
     [""]
 ]
-first = ["&&", "||", ""]
+first = ["||", ""]
 follow = ["{"]
+
+[bool_term]
+prods = [
+    ["bool_expr", "bool_term1"]
+]
+
+first = ["(", "IDENTIFIER", "NUMBER"]
+follow = ["{", "||"]
+
+[bool_term1]
+prods = [
+    ["&&", "bool_expr", "bool_term1"],
+    [""]
+]
+first = ["||", ""]
+follow = ["{", "||"]
 
 [bool_expr]
 prods = [
