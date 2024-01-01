@@ -11,8 +11,9 @@ fn main() {
 
     match parser.parse() {
         Ok(_) => {
-            parser.gen();
-        },
+            parser.generate_ast();
+            println!("{:?}", parser.ast);
+        }
         Err(s) => println!("{s}"),
     }
 }

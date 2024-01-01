@@ -1,6 +1,45 @@
 use crate::lexer::{Lexer, Token};
 use std::collections::{HashMap, LinkedList};
 
+#[derive(Clone, PartialEq, Debug)]
+pub enum SyntaxTreeNode {
+    NodeSeq,
+    DeclareNode,
+    NodeHeader,
+    TLStmtSeq,
+    DeclareFunc,
+    ParamList,
+    Param,
+    ReturnType,
+    StmtSeq,
+    DeclareVar,
+    DeclareConst,
+    ReturnValue,
+    WhileLoop,
+    AddOp,
+    SubOp,
+    MulOp,
+    DivOp,
+    Number(f64),
+    Identifier(String),
+    Null,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct AbstractSyntaxTree {
+    node: SyntaxTreeNode,
+    children: Vec<AbstractSyntaxTree>,
+}
+
+impl AbstractSyntaxTree {
+    pub fn new() -> Self {
+        Self {
+            node: SyntaxTreeNode::Null,
+            children: vec![],
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct ParseTree {
     node_list: Vec<GrammarSymbol>,
@@ -17,11 +56,26 @@ impl ParseTree {
         }
     }
 
+    pub fn size(&self) -> usize {
+        self.node_list.len()
+    }
+
     pub fn set_root(&mut self, sym: GrammarSymbol) {
         if self.node_list.len() == 0 {
             self.node_list.push(sym);
         } else {
             self.node_list[0] = sym;
+        }
+    }
+
+    pub fn get_node(&self, idx: usize) -> GrammarSymbol {
+        self.node_list[idx].clone()
+    }
+
+    pub fn get_children(&self, idx: usize) -> Vec<usize> {
+        match self.adj_list.get(&idx) {
+            Some(children) => children.clone(),
+            None => vec![],
         }
     }
 
@@ -56,10 +110,10 @@ impl ParseTree {
             for sibling in siblings {
                 if flag {
                     match self.node_list[sibling] {
-                        GrammarSymbol::Nonterminal(_) => {
+                        GrammarSymbol::Terminal(_) | GrammarSymbol::Empty | GrammarSymbol::End => {}
+                        _ => {
                             return sibling;
                         }
-                        _ => {}
                     }
                 }
 
@@ -76,14 +130,45 @@ impl ParseTree {
 pub struct Parser {
     lexer: Lexer,
     pub parse_tree: ParseTree,
+    pub ast: AbstractSyntaxTree,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum GrammarSymbol {
     Terminal(Token),
-    Nonterminal(String),
     Empty,
     End,
+    Block,
+    BoolExpr,
+    Comparison,
+    Conditional,
+    Conditional1,
+    Expression,
+    Expression1,
+    Factor,
+    Func,
+    ID,
+    IDOrFn,
+    InputList,
+    InputRest,
+    NodeBlock,
+    NodeHeader,
+    NodeList,
+    NodeNT,
+    NodeRest,
+    OptElse,
+    OptIDList,
+    Param,
+    ParamList,
+    ParamRest,
+    Program,
+    ReturnType,
+    Stmt,
+    StmtList,
+    Term,
+    Term1,
+    TLStmt,
+    TLStmtList,
 }
 
 impl Parser {
@@ -91,6 +176,7 @@ impl Parser {
         Self {
             lexer,
             parse_tree: ParseTree::new(),
+            ast: AbstractSyntaxTree::new(),
         }
     }
 
@@ -98,10 +184,9 @@ impl Parser {
         let mut stack: LinkedList<GrammarSymbol> = LinkedList::new();
 
         stack.push_back(GrammarSymbol::End);
-        stack.push_back(GrammarSymbol::Nonterminal("program".to_string()));
+        stack.push_back(GrammarSymbol::Program);
 
-        self.parse_tree
-            .set_root(GrammarSymbol::Nonterminal("program".to_string()));
+        self.parse_tree.set_root(GrammarSymbol::Program);
         let mut idx = 0;
 
         loop {
@@ -121,448 +206,489 @@ impl Parser {
                             return Err("syntax error 1".to_string());
                         }
                     }
-                    GrammarSymbol::Nonterminal(nt) => {
-                        let mut production: Vec<GrammarSymbol> = vec![];
-
-                        match (nt.as_str(), token.clone()) {
-                            ("program", Some(Token::Node)) => {
-                                production = vec![
-                                    GrammarSymbol::Nonterminal("node_nt".to_string()),
-                                    GrammarSymbol::Nonterminal("program".to_string()),
-                                ];
-                                // println!("P -> N P");
-                            }
-                            ("program", None) => {
-                                // println!("P -> `");
-                            }
-                            ("node_nt", Some(Token::Node)) => {
-                                production = vec![
-                                    GrammarSymbol::Terminal(Token::Node),
-                                    GrammarSymbol::Nonterminal("node_header".to_string()),
-                                    GrammarSymbol::Nonterminal("node_block".to_string()),
-                                ];
-                                // println!("N -> node Nh NB");
-                            }
-                            ("node_header", Some(Token::ID(_))) => {
-                                production = vec![
-                                    GrammarSymbol::Nonterminal("id".to_string()),
-                                    GrammarSymbol::Nonterminal("opt_id_list".to_string()),
-                                ];
-                                // println!("Nh -> id opt_id_list");
-                            }
-                            ("opt_id_list", Some(Token::Colon)) => {
-                                production = vec![
-                                    GrammarSymbol::Terminal(Token::Colon),
-                                    GrammarSymbol::Nonterminal("node_list".to_string()),
-                                ];
-                                // println!("opt_id_list -> : node_list");
-                            }
-                            ("opt_id_list", Some(Token::LeftBrace)) => {
-                                // println!("opt_id_list -> `");
-                            }
-                            ("node_list", Some(Token::ID(_))) => {
-                                production = vec![
-                                    GrammarSymbol::Nonterminal("id".to_string()),
-                                    GrammarSymbol::Nonterminal("node_rest".to_string()),
-                                ];
-                                // println!("node_list -> id node_rest");
-                            }
-                            ("node_rest", Some(Token::Comma)) => {
-                                production = vec![
-                                    GrammarSymbol::Terminal(Token::Comma),
-                                    GrammarSymbol::Nonterminal("node_list".to_string()),
-                                ];
-                                // println!("node_rest -> , node_list");
-                            }
-                            ("node_rest", Some(Token::LeftBrace)) => {
-                                // println!("node_rest -> `");
-                            }
-                            ("node_block", Some(Token::LeftBrace)) => {
-                                production = vec![
-                                    GrammarSymbol::Terminal(Token::LeftBrace),
-                                    GrammarSymbol::Nonterminal("top_level_stmt_list".to_string()),
-                                    GrammarSymbol::Terminal(Token::RightBrace),
-                                ];
-                                // println!("node_block -> {{ top_level_stmt_list }}");
-                            }
-                            ("top_level_stmt_list", Some(Token::Fn)) => {
-                                production = vec![
-                                    GrammarSymbol::Nonterminal("top_level_stmt".to_string()),
-                                    GrammarSymbol::Nonterminal("top_level_stmt_list".to_string()),
-                                ];
-                                // println!(
-                                //     "top_level_stmt_list -> top_level_stmt top_level_stmt_list"
-                                // );
-                            }
-                            ("top_level_stmt_list", Some(Token::RightBrace)) => {
-                                // println!("top_level_stmt_list -> `");
-                            }
-                            ("top_level_stmt", Some(Token::Fn)) => {
-                                production = vec![GrammarSymbol::Nonterminal("func".to_string())];
-                                // println!("top_level_stmt -> func");
-                            }
-                            ("func", Some(Token::Fn)) => {
-                                production = vec![
-                                    GrammarSymbol::Terminal(Token::Fn),
-                                    GrammarSymbol::Nonterminal("id".to_string()),
-                                    GrammarSymbol::Terminal(Token::LeftParen),
-                                    GrammarSymbol::Nonterminal("param_list".to_string()),
-                                    GrammarSymbol::Terminal(Token::RightParen),
-                                    GrammarSymbol::Terminal(Token::Arrow),
-                                    GrammarSymbol::Nonterminal("return_type".to_string()),
-                                    GrammarSymbol::Nonterminal("block".to_string()),
-                                ];
-                                // println!("Fn -> fn id ( param_list ) -> return_type B");
-                            }
-                            ("return_type", Some(Token::ID(_))) => {
-                                production = vec![GrammarSymbol::Nonterminal("id".to_string())];
-                                // println!("return_type -> id");
-                            }
-                            ("return_type", Some(Token::LeftParen)) => {
-                                production = vec![
-                                    GrammarSymbol::Terminal(Token::LeftParen),
-                                    GrammarSymbol::Terminal(Token::RightParen),
-                                ];
-                                // println!("return_type -> ( )");
-                            }
-                            ("return_type", Some(Token::Not)) => {
-                                production = vec![GrammarSymbol::Terminal(Token::Not)];
-                                // println!("return_type -> !");
-                            }
-                            ("param_list", Some(Token::ID(_))) => {
-                                production = vec![
-                                    GrammarSymbol::Nonterminal("param".to_string()),
-                                    GrammarSymbol::Nonterminal("param_rest".to_string()),
-                                ];
-                                // println!("param_list -> param param_rest");
-                            }
-                            ("param_list", Some(Token::RightParen)) => {
-                                // println!("param_list -> `");
-                            }
-                            ("param", Some(Token::ID(_))) => {
-                                production = vec![
-                                    GrammarSymbol::Nonterminal("id".to_string()),
-                                    GrammarSymbol::Terminal(Token::Colon),
-                                    GrammarSymbol::Nonterminal("id".to_string()),
-                                ];
-                                // println!("param -> id : id");
-                            }
-                            ("param_rest", Some(Token::Comma)) => {
-                                production = vec![
-                                    GrammarSymbol::Terminal(Token::Comma),
-                                    GrammarSymbol::Nonterminal("param_list".to_string()),
-                                ];
-                                // println!("param_rest -> , param_list");
-                            }
-                            ("param_rest", Some(Token::RightParen)) => {
-                                // println!("param_rest -> `");
-                            }
-                            ("block", Some(Token::LeftBrace)) => {
-                                production = vec![
-                                    GrammarSymbol::Terminal(Token::LeftBrace),
-                                    GrammarSymbol::Nonterminal("stmt_list".to_string()),
-                                    GrammarSymbol::Terminal(Token::RightBrace),
-                                ];
-                                // println!("B -> {{ SL }}");
-                            }
-                            ("stmt_list", Some(Token::Var))
-                            | ("stmt_list", Some(Token::Const))
-                            | ("stmt_list", Some(Token::While))
-                            | ("stmt_list", Some(Token::If))
-                            | ("stmt_list", Some(Token::Return))
-                            | ("stmt_list", Some(Token::ID(_))) => {
-                                production = vec![
-                                    GrammarSymbol::Nonterminal("stmt".to_string()),
-                                    GrammarSymbol::Nonterminal("stmt_list".to_string()),
-                                ];
-                                // println!("SL -> S SL");
-                            }
-                            ("stmt_list", Some(Token::RightBrace)) => {
-                                // println!("SL -> `");
-                            }
-                            ("stmt", Some(Token::Var)) => {
-                                production = vec![
-                                    GrammarSymbol::Terminal(Token::Var),
-                                    GrammarSymbol::Nonterminal("id".to_string()),
-                                    GrammarSymbol::Terminal(Token::Colon),
-                                    GrammarSymbol::Nonterminal("id".to_string()),
-                                    GrammarSymbol::Terminal(Token::Assign),
-                                    GrammarSymbol::Nonterminal("expression".to_string()),
-                                    GrammarSymbol::Terminal(Token::Semicolon),
-                                ];
-                                // println!("S -> var IDENTIFIER : IDENTIFIER = E ;");
-                            }
-                            ("stmt", Some(Token::Const)) => {
-                                production = vec![
-                                    GrammarSymbol::Terminal(Token::Const),
-                                    GrammarSymbol::Nonterminal("id".to_string()),
-                                    GrammarSymbol::Terminal(Token::Colon),
-                                    GrammarSymbol::Nonterminal("id".to_string()),
-                                    GrammarSymbol::Terminal(Token::Assign),
-                                    GrammarSymbol::Nonterminal("expression".to_string()),
-                                    GrammarSymbol::Terminal(Token::Semicolon),
-                                ];
-                                // println!("S -> const IDENTIFIER : IDENTIFIER = E ;");
-                            }
-                            ("stmt", Some(Token::ID(_))) => {
-                                production = vec![
-                                    GrammarSymbol::Nonterminal("id".to_string()),
-                                    GrammarSymbol::Terminal(Token::Assign),
-                                    GrammarSymbol::Nonterminal("expression".to_string()),
-                                    GrammarSymbol::Terminal(Token::Semicolon),
-                                ];
-                                // println!("S -> id = E ;");
-                            }
-                            ("stmt", Some(Token::While)) => {
-                                production = vec![
-                                    GrammarSymbol::Terminal(Token::While),
-                                    GrammarSymbol::Nonterminal("conditional".to_string()),
-                                    GrammarSymbol::Nonterminal("block".to_string()),
-                                ];
-
-                                // println!("S -> while C B");
-                            }
-                            ("stmt", Some(Token::If)) => {
-                                production = vec![
-                                    GrammarSymbol::Terminal(Token::If),
-                                    GrammarSymbol::Nonterminal("conditional".to_string()),
-                                    GrammarSymbol::Nonterminal("block".to_string()),
-                                    GrammarSymbol::Nonterminal("optelse".to_string()),
-                                ];
-                                // println!("S -> if C B optelse");
-                            }
-                            ("stmt", Some(Token::Return)) => {
-                                production = vec![
-                                    GrammarSymbol::Terminal(Token::Return),
-                                    GrammarSymbol::Nonterminal("expression".to_string()),
-                                    GrammarSymbol::Terminal(Token::Semicolon),
-                                ];
-                                // println!("S -> return E ;");
-                            }
-                            ("optelse", Some(Token::Else)) => {
-                                production = vec![
-                                    GrammarSymbol::Terminal(Token::Else),
-                                    GrammarSymbol::Nonterminal("block".to_string()),
-                                ];
-                                // println!("optelse -> else B");
-                            }
-                            ("optelse", Some(Token::Var))
-                            | ("optelse", Some(Token::Const))
-                            | ("optelse", Some(Token::ID(_)))
-                            | ("optelse", Some(Token::While))
-                            | ("optelse", Some(Token::If))
-                            | ("optelse", Some(Token::RightBrace)) => {
-                                // println!("optelse -> `");
-                            }
-                            ("conditional", Some(Token::ID(_)))
-                            | ("conditional", Some(Token::LeftParen))
-                            | ("conditional", Some(Token::Number(_))) => {
-                                production = vec![
-                                    GrammarSymbol::Nonterminal("bool_expr".to_string()),
-                                    GrammarSymbol::Nonterminal("conditional1".to_string()),
-                                ];
-                                // println!("C -> bE C'");
-                            }
-                            ("bool_expr", Some(Token::ID(_)))
-                            | ("bool_expr", Some(Token::Number(_)))
-                            | ("bool_expr", Some(Token::LeftParen)) => {
-                                production = vec![
-                                    GrammarSymbol::Nonterminal("expression".to_string()),
-                                    GrammarSymbol::Nonterminal("comparison".to_string()),
-                                    GrammarSymbol::Nonterminal("expression".to_string()),
-                                ];
-
-                                // println!("bE -> E comp E");
-                            }
-                            ("comparison", Some(Token::Equals)) => {
-                                production = vec![GrammarSymbol::Terminal(Token::Equals)];
-                                // println!("comp -> ==");
-                            }
-                            ("comparison", Some(Token::Neq)) => {
-                                production = vec![GrammarSymbol::Terminal(Token::Neq)];
-                                // println!("comp -> !=");
-                            }
-                            ("comparison", Some(Token::Less)) => {
-                                production = vec![GrammarSymbol::Terminal(Token::Less)];
-                                // println!("comp -> <");
-                            }
-                            ("comparison", Some(Token::Greater)) => {
-                                production = vec![GrammarSymbol::Terminal(Token::Greater)];
-                                // println!("comp -> >");
-                            }
-                            ("comparison", Some(Token::Leq)) => {
-                                production = vec![GrammarSymbol::Terminal(Token::Leq)];
-                                // println!("comp -> <=");
-                            }
-                            ("comparison", Some(Token::Geq)) => {
-                                production = vec![GrammarSymbol::Terminal(Token::Geq)];
-                                // println!("comp -> >=");
-                            }
-                            ("conditional1", Some(Token::LogicalAnd)) => {
-                                production = vec![
-                                    GrammarSymbol::Terminal(Token::LogicalAnd),
-                                    GrammarSymbol::Nonterminal("bool_expr".to_string()),
-                                    GrammarSymbol::Nonterminal("conditional1".to_string()),
-                                ];
-                                // println!("C' -> && bE C'");
-                            }
-                            ("conditional1", Some(Token::LogicalOr)) => {
-                                production = vec![
-                                    GrammarSymbol::Terminal(Token::LogicalOr),
-                                    GrammarSymbol::Nonterminal("bool_expr".to_string()),
-                                    GrammarSymbol::Nonterminal("conditional1".to_string()),
-                                ];
-                                // println!("C' -> || bE C'");
-                            }
-                            ("conditional1", Some(Token::LeftBrace)) => {
-                                // println!("C' -> `");
-                            }
-                            ("expression", Some(Token::ID(_)))
-                            | ("expression", Some(Token::Number(_)))
-                            | ("expression", Some(Token::LeftParen)) => {
-                                production = vec![
-                                    GrammarSymbol::Nonterminal("term".to_string()),
-                                    GrammarSymbol::Nonterminal("expression1".to_string()),
-                                ];
-                                // println!("E -> T E'");
-                            }
-                            ("expression1", Some(Token::Add)) => {
-                                production = vec![
-                                    GrammarSymbol::Terminal(Token::Add),
-                                    GrammarSymbol::Nonterminal("term".to_string()),
-                                    GrammarSymbol::Nonterminal("expression1".to_string()),
-                                ];
-                                // println!("E' -> + T E'");
-                            }
-                            ("expression1", Some(Token::Sub)) => {
-                                production = vec![
-                                    GrammarSymbol::Terminal(Token::Sub),
-                                    GrammarSymbol::Nonterminal("term".to_string()),
-                                    GrammarSymbol::Nonterminal("expression1".to_string()),
-                                ];
-                                // println!("E' -> - T E'");
-                            }
-                            ("expression1", Some(Token::RightParen))
-                            | ("expression1", Some(Token::Semicolon))
-                            | ("expression1", Some(Token::Equals))
-                            | ("expression1", Some(Token::Neq))
-                            | ("expression1", Some(Token::Less))
-                            | ("expression1", Some(Token::Greater))
-                            | ("expression1", Some(Token::Leq))
-                            | ("expression1", Some(Token::Geq))
-                            | ("expression1", Some(Token::LeftBrace)) => {
-                                // println!("E' -> `");
-                            }
-                            ("term", Some(Token::ID(_)))
-                            | ("term", Some(Token::Number(_)))
-                            | ("term", Some(Token::LeftParen)) => {
-                                production = vec![
-                                    GrammarSymbol::Nonterminal("factor".to_string()),
-                                    GrammarSymbol::Nonterminal("term1".to_string()),
-                                ];
-                                // println!("T -> F T'");
-                            }
-                            ("term1", Some(Token::Mul)) => {
-                                production = vec![
-                                    GrammarSymbol::Terminal(Token::Mul),
-                                    GrammarSymbol::Nonterminal("factor".to_string()),
-                                    GrammarSymbol::Nonterminal("term1".to_string()),
-                                ];
-                                // println!("T' -> * F T'");
-                            }
-                            ("term1", Some(Token::Div)) => {
-                                production = vec![
-                                    GrammarSymbol::Terminal(Token::Div),
-                                    GrammarSymbol::Nonterminal("factor".to_string()),
-                                    GrammarSymbol::Nonterminal("term1".to_string()),
-                                ];
-                                // println!("T' -> / F T'");
-                            }
-                            ("term1", Some(Token::Add))
-                            | ("term1", Some(Token::Sub))
-                            | ("term1", Some(Token::RightParen))
-                            | ("term1", Some(Token::Semicolon))
-                            | ("term1", Some(Token::Equals))
-                            | ("term1", Some(Token::Neq))
-                            | ("term1", Some(Token::Less))
-                            | ("term1", Some(Token::Greater))
-                            | ("term1", Some(Token::Leq))
-                            | ("term1", Some(Token::Geq))
-                            | ("term1", Some(Token::LeftBrace)) => {
-                                // println!("T' -> `");
-                            }
-                            ("factor", Some(Token::LeftParen)) => {
-                                production = vec![
-                                    GrammarSymbol::Terminal(Token::LeftParen),
-                                    GrammarSymbol::Nonterminal("expression".to_string()),
-                                    GrammarSymbol::Terminal(Token::RightParen),
-                                ];
-                                // println!("F -> ( E )");
-                            }
-                            ("factor", Some(Token::ID(_))) => {
-                                production = vec![
-                                    GrammarSymbol::Nonterminal("id".to_string()),
-                                    GrammarSymbol::Nonterminal("id_or_fn".to_string()),
-                                ];
-                                // println!("F -> id if_or_fn");
-                            }
-                            ("factor", Some(Token::Number(num))) => {
-                                production = vec![GrammarSymbol::Terminal(Token::Number(num))];
-                                // println!("F -> NUMBER");
-                            }
-                            ("id", Some(Token::ID(id))) => {
-                                production = vec![GrammarSymbol::Terminal(Token::ID(id.clone()))];
-                                // println!("id -> IDENTIFIER");
-                            }
-                            ("id_or_fn", Some(Token::LeftParen)) => {
-                                production = vec![
-                                    GrammarSymbol::Terminal(Token::LeftParen),
-                                    GrammarSymbol::Nonterminal("input_list".to_string()),
-                                    GrammarSymbol::Terminal(Token::RightParen),
-                                ];
-                                // println!("id_or_fn -> ( input_list )");
-                            }
-                            ("id_or_fn", Some(Token::Mul))
-                            | ("id_or_fn", Some(Token::Div))
-                            | ("id_or_fn", Some(Token::Add))
-                            | ("id_or_fn", Some(Token::Sub))
-                            | ("id_or_fn", Some(Token::RightParen))
-                            | ("id_or_fn", Some(Token::Semicolon))
-                            | ("id_or_fn", Some(Token::Equals))
-                            | ("id_or_fn", Some(Token::Neq))
-                            | ("id_or_fn", Some(Token::Less))
-                            | ("id_or_fn", Some(Token::Greater))
-                            | ("id_or_fn", Some(Token::Leq))
-                            | ("id_or_fn", Some(Token::Geq))
-                            | ("id_or_fn", Some(Token::LeftBrace)) => {
-                                // println!("T' -> `");
-                            }
-                            ("input_list", Some(Token::ID(_)))
-                            | ("input_list", Some(Token::Number(_)))
-                            | ("input_list", Some(Token::LeftParen)) => {
-                                production = vec![
-                                    GrammarSymbol::Nonterminal("expression".to_string()),
-                                    GrammarSymbol::Nonterminal("input_rest".to_string()),
-                                ];
-                                // println!("input_list -> id input_rest");
-                            }
-                            ("input_list", Some(Token::RightParen)) => {
-                                // println!("input_list -> `")
-                            }
-                            ("input_rest", Some(Token::Comma)) => {
-                                production = vec![
-                                    GrammarSymbol::Terminal(Token::Comma),
-                                    GrammarSymbol::Nonterminal("input_list".to_string()),
-                                ];
-                                // println!("input_rest -> , input_list");
-                            }
-                            ("input_rest", Some(Token::RightParen)) => {
-                                // println!("input_rest -> `")
-                            }
-                            _ => {
+                    GrammarSymbol::Empty => {}
+                    GrammarSymbol::End => {
+                        if token == None {
+                            break;
+                        } else {
+                            // println!("{}", token.unwrap().clone(),);
+                            return Err("syntax error 3".to_string());
+                        }
+                    }
+                    nt => {
+                        let production: Vec<GrammarSymbol> = match nt {
+                            GrammarSymbol::Terminal(_)
+                            | GrammarSymbol::Empty
+                            | GrammarSymbol::End => {
                                 return Err(format!("syntax error: {:?} {:?}", nt, token));
                             }
-                        }
+                            GrammarSymbol::Block => match token.clone() {
+                                Some(Token::LeftBrace) => vec![
+                                    GrammarSymbol::Terminal(Token::LeftBrace),
+                                    GrammarSymbol::StmtList,
+                                    GrammarSymbol::Terminal(Token::RightBrace),
+                                ],
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                            GrammarSymbol::BoolExpr => match token.clone() {
+                                Some(Token::ID(_))
+                                | Some(Token::Number(_))
+                                | Some(Token::LeftParen) => {
+                                    vec![
+                                        GrammarSymbol::Expression,
+                                        GrammarSymbol::Comparison,
+                                        GrammarSymbol::Expression,
+                                    ]
+                                }
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                            GrammarSymbol::Comparison => match token.clone() {
+                                Some(Token::Equals) => vec![GrammarSymbol::Terminal(Token::Equals)],
+                                Some(Token::Neq) => vec![GrammarSymbol::Terminal(Token::Neq)],
+                                Some(Token::Less) => vec![GrammarSymbol::Terminal(Token::Less)],
+                                Some(Token::Greater) => {
+                                    vec![GrammarSymbol::Terminal(Token::Greater)]
+                                }
+                                Some(Token::Leq) => vec![GrammarSymbol::Terminal(Token::Leq)],
+                                Some(Token::Geq) => vec![GrammarSymbol::Terminal(Token::Geq)],
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                            GrammarSymbol::Conditional => match token.clone() {
+                                Some(Token::ID(_))
+                                | Some(Token::LeftParen)
+                                | Some(Token::Number(_)) => {
+                                    vec![GrammarSymbol::BoolExpr, GrammarSymbol::Conditional1]
+                                }
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                            GrammarSymbol::Conditional1 => match token.clone() {
+                                Some(Token::LogicalAnd) => {
+                                    vec![
+                                        GrammarSymbol::Terminal(Token::LogicalAnd),
+                                        GrammarSymbol::BoolExpr,
+                                        GrammarSymbol::Conditional1,
+                                    ]
+                                }
+                                Some(Token::LogicalOr) => {
+                                    vec![
+                                        GrammarSymbol::Terminal(Token::LogicalOr),
+                                        GrammarSymbol::BoolExpr,
+                                        GrammarSymbol::Conditional1,
+                                    ]
+                                }
+                                Some(Token::LeftBrace) => {
+                                    vec![]
+                                }
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                            GrammarSymbol::Expression => match token.clone() {
+                                Some(Token::ID(_))
+                                | Some(Token::Number(_))
+                                | Some(Token::LeftParen) => {
+                                    vec![GrammarSymbol::Term, GrammarSymbol::Expression1]
+                                }
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                            GrammarSymbol::Expression1 => match token.clone() {
+                                Some(Token::RightParen)
+                                | Some(Token::Semicolon)
+                                | Some(Token::Equals)
+                                | Some(Token::Neq)
+                                | Some(Token::Less)
+                                | Some(Token::Greater)
+                                | Some(Token::Leq)
+                                | Some(Token::Geq)
+                                | Some(Token::LeftBrace) => {
+                                    vec![]
+                                }
+                                Some(Token::Sub) => {
+                                    vec![
+                                        GrammarSymbol::Terminal(Token::Sub),
+                                        GrammarSymbol::Term,
+                                        GrammarSymbol::Expression1,
+                                    ]
+                                }
+                                Some(Token::Add) => {
+                                    vec![
+                                        GrammarSymbol::Terminal(Token::Add),
+                                        GrammarSymbol::Term,
+                                        GrammarSymbol::Expression1,
+                                    ]
+                                }
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                            GrammarSymbol::Factor => match token.clone() {
+                                Some(Token::LeftParen) => {
+                                    vec![
+                                        GrammarSymbol::Terminal(Token::LeftParen),
+                                        GrammarSymbol::Expression,
+                                        GrammarSymbol::Terminal(Token::RightParen),
+                                    ]
+                                }
+                                Some(Token::ID(_)) => {
+                                    vec![GrammarSymbol::ID, GrammarSymbol::IDOrFn]
+                                }
+                                Some(Token::Number(num)) => {
+                                    vec![GrammarSymbol::Terminal(Token::Number(num))]
+                                }
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                            GrammarSymbol::Func => match token.clone() {
+                                Some(Token::Fn) => {
+                                    vec![
+                                        GrammarSymbol::Terminal(Token::Fn),
+                                        GrammarSymbol::ID,
+                                        GrammarSymbol::Terminal(Token::LeftParen),
+                                        GrammarSymbol::ParamList,
+                                        GrammarSymbol::Terminal(Token::RightParen),
+                                        GrammarSymbol::Terminal(Token::Arrow),
+                                        GrammarSymbol::ReturnType,
+                                        GrammarSymbol::Block,
+                                    ]
+                                }
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                            GrammarSymbol::ID => match token.clone() {
+                                Some(Token::ID(id)) => {
+                                    vec![GrammarSymbol::Terminal(Token::ID(id.clone()))]
+                                }
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                            GrammarSymbol::IDOrFn => match token.clone() {
+                                Some(Token::LeftParen) => {
+                                    vec![
+                                        GrammarSymbol::Terminal(Token::LeftParen),
+                                        GrammarSymbol::InputList,
+                                        GrammarSymbol::Terminal(Token::RightParen),
+                                    ]
+                                }
+                                Some(Token::Mul)
+                                | Some(Token::Div)
+                                | Some(Token::Add)
+                                | Some(Token::Sub)
+                                | Some(Token::RightParen)
+                                | Some(Token::Semicolon)
+                                | Some(Token::Equals)
+                                | Some(Token::Neq)
+                                | Some(Token::Less)
+                                | Some(Token::Greater)
+                                | Some(Token::Leq)
+                                | Some(Token::Geq)
+                                | Some(Token::LeftBrace) => {
+                                    // println!("T' -> `");
+                                    vec![]
+                                }
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                            GrammarSymbol::InputList => match token.clone() {
+                                Some(Token::ID(_))
+                                | Some(Token::Number(_))
+                                | Some(Token::LeftParen) => {
+                                    vec![GrammarSymbol::Expression, GrammarSymbol::InputRest]
+                                }
+                                Some(Token::RightParen) => {
+                                    vec![]
+                                }
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                            GrammarSymbol::InputRest => match token.clone() {
+                                Some(Token::Comma) => {
+                                    vec![
+                                        GrammarSymbol::Terminal(Token::Comma),
+                                        GrammarSymbol::InputList,
+                                    ]
+                                }
+                                Some(Token::RightParen) => {
+                                    // println!("input_rest -> `")
+                                    vec![]
+                                }
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                            GrammarSymbol::NodeBlock => match token.clone() {
+                                Some(Token::LeftBrace) => vec![
+                                    GrammarSymbol::Terminal(Token::LeftBrace),
+                                    GrammarSymbol::TLStmtList,
+                                    GrammarSymbol::Terminal(Token::RightBrace),
+                                ],
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                            GrammarSymbol::NodeHeader => match token.clone() {
+                                Some(Token::ID(_)) => {
+                                    vec![GrammarSymbol::ID, GrammarSymbol::OptIDList]
+                                }
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                            GrammarSymbol::NodeList => match token.clone() {
+                                Some(Token::ID(_)) => {
+                                    vec![GrammarSymbol::ID, GrammarSymbol::NodeRest]
+                                }
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                            GrammarSymbol::NodeNT => match token.clone() {
+                                Some(Token::Node) => {
+                                    vec![
+                                        GrammarSymbol::Terminal(Token::Node),
+                                        GrammarSymbol::NodeHeader,
+                                        GrammarSymbol::NodeBlock,
+                                    ]
+                                    // println!("N -> node Nh NB");
+                                }
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                            GrammarSymbol::NodeRest => match token.clone() {
+                                Some(Token::Comma) => vec![
+                                    GrammarSymbol::Terminal(Token::Comma),
+                                    GrammarSymbol::NodeList,
+                                ],
+                                Some(Token::LeftBrace) => vec![],
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                            GrammarSymbol::OptElse => match token.clone() {
+                                Some(Token::Else) => {
+                                    vec![GrammarSymbol::Terminal(Token::Else), GrammarSymbol::Block]
+                                }
+                                Some(Token::Var)
+                                | Some(Token::Const)
+                                | Some(Token::ID(_))
+                                | Some(Token::While)
+                                | Some(Token::If)
+                                | Some(Token::RightBrace) => {
+                                    vec![]
+                                }
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                            GrammarSymbol::OptIDList => match token.clone() {
+                                Some(Token::Colon) => vec![
+                                    GrammarSymbol::Terminal(Token::Colon),
+                                    GrammarSymbol::NodeList,
+                                ],
+                                Some(Token::LeftBrace) => vec![],
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                            GrammarSymbol::Param => match token.clone() {
+                                Some(Token::ID(_)) => vec![
+                                    GrammarSymbol::ID,
+                                    GrammarSymbol::Terminal(Token::Colon),
+                                    GrammarSymbol::ID,
+                                ],
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                            GrammarSymbol::ParamList => match token.clone() {
+                                Some(Token::ID(_)) => {
+                                    vec![GrammarSymbol::Param, GrammarSymbol::ParamRest]
+                                }
+                                Some(Token::RightParen) => vec![],
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                            GrammarSymbol::ParamRest => match token.clone() {
+                                Some(Token::Comma) => vec![
+                                    GrammarSymbol::Terminal(Token::Comma),
+                                    GrammarSymbol::ParamList,
+                                ],
+                                Some(Token::RightParen) => vec![],
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                            GrammarSymbol::Program => match token.clone() {
+                                Some(Token::Node) => {
+                                    vec![GrammarSymbol::NodeNT, GrammarSymbol::Program]
+                                    // println!("P -> N P");
+                                }
+                                None => {
+                                    vec![]
+                                    // println!("P -> `");
+                                }
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                            GrammarSymbol::ReturnType => match token.clone() {
+                                Some(Token::ID(_)) => vec![GrammarSymbol::ID],
+                                Some(Token::LeftParen) => vec![
+                                    GrammarSymbol::Terminal(Token::LeftParen),
+                                    GrammarSymbol::Terminal(Token::RightParen),
+                                ],
+                                Some(Token::Not) => vec![GrammarSymbol::Terminal(Token::Not)],
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                            GrammarSymbol::Stmt => match token.clone() {
+                                Some(Token::Var) => {
+                                    vec![
+                                        GrammarSymbol::Terminal(Token::Var),
+                                        GrammarSymbol::ID,
+                                        GrammarSymbol::Terminal(Token::Colon),
+                                        GrammarSymbol::ID,
+                                        GrammarSymbol::Terminal(Token::Assign),
+                                        GrammarSymbol::Expression,
+                                        GrammarSymbol::Terminal(Token::Semicolon),
+                                    ]
+                                }
+                                Some(Token::Const) => {
+                                    vec![
+                                        GrammarSymbol::Terminal(Token::Const),
+                                        GrammarSymbol::ID,
+                                        GrammarSymbol::Terminal(Token::Colon),
+                                        GrammarSymbol::ID,
+                                        GrammarSymbol::Terminal(Token::Assign),
+                                        GrammarSymbol::Expression,
+                                        GrammarSymbol::Terminal(Token::Semicolon),
+                                    ]
+                                }
+                                Some(Token::ID(_)) => {
+                                    vec![
+                                        GrammarSymbol::ID,
+                                        GrammarSymbol::Terminal(Token::Assign),
+                                        GrammarSymbol::Expression,
+                                        GrammarSymbol::Terminal(Token::Semicolon),
+                                    ]
+                                }
+                                Some(Token::While) => {
+                                    vec![
+                                        GrammarSymbol::Terminal(Token::While),
+                                        GrammarSymbol::Conditional,
+                                        GrammarSymbol::Block,
+                                    ]
+                                }
+                                Some(Token::If) => {
+                                    vec![
+                                        GrammarSymbol::Terminal(Token::If),
+                                        GrammarSymbol::Conditional,
+                                        GrammarSymbol::Block,
+                                        GrammarSymbol::OptElse,
+                                    ]
+                                }
+                                Some(Token::Return) => {
+                                    vec![
+                                        GrammarSymbol::Terminal(Token::Return),
+                                        GrammarSymbol::Expression,
+                                        GrammarSymbol::Terminal(Token::Semicolon),
+                                    ]
+                                }
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                            GrammarSymbol::StmtList => match token.clone() {
+                                Some(Token::Var) | Some(Token::Const) | Some(Token::While)
+                                | Some(Token::If) | Some(Token::Return) | Some(Token::ID(_)) => {
+                                    vec![GrammarSymbol::Stmt, GrammarSymbol::StmtList]
+                                }
+                                Some(Token::RightBrace) => {
+                                    vec![]
+                                }
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                            GrammarSymbol::Term => match token.clone() {
+                                Some(Token::ID(_))
+                                | Some(Token::Number(_))
+                                | Some(Token::LeftParen) => {
+                                    vec![GrammarSymbol::Factor, GrammarSymbol::Term1]
+                                }
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                            GrammarSymbol::Term1 => match token.clone() {
+                                Some(Token::Mul) => {
+                                    vec![
+                                        GrammarSymbol::Terminal(Token::Mul),
+                                        GrammarSymbol::Factor,
+                                        GrammarSymbol::Term1,
+                                    ]
+                                }
+                                Some(Token::Div) => {
+                                    vec![
+                                        GrammarSymbol::Terminal(Token::Div),
+                                        GrammarSymbol::Factor,
+                                        GrammarSymbol::Term1,
+                                    ]
+                                }
+                                Some(Token::Add)
+                                | Some(Token::Sub)
+                                | Some(Token::RightParen)
+                                | Some(Token::Semicolon)
+                                | Some(Token::Equals)
+                                | Some(Token::Neq)
+                                | Some(Token::Less)
+                                | Some(Token::Greater)
+                                | Some(Token::Leq)
+                                | Some(Token::Geq)
+                                | Some(Token::LeftBrace) => {
+                                    vec![]
+                                }
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                            GrammarSymbol::TLStmt => match token.clone() {
+                                Some(Token::Fn) => {
+                                    vec![GrammarSymbol::Func]
+                                }
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                            GrammarSymbol::TLStmtList => match token.clone() {
+                                Some(Token::Fn) => {
+                                    vec![GrammarSymbol::TLStmt, GrammarSymbol::TLStmtList]
+                                }
+                                Some(Token::RightBrace) => {
+                                    vec![]
+                                }
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                        };
 
                         if production.len() == 0 {
                             self.parse_tree.add_child(idx, GrammarSymbol::Empty);
@@ -579,13 +705,15 @@ impl Parser {
                         production.iter().for_each(|symbol| {
                             let i = self.parse_tree.add_child(idx, symbol.clone());
                             match symbol.clone() {
-                                GrammarSymbol::Nonterminal(_) => {
+                                GrammarSymbol::Terminal(_)
+                                | GrammarSymbol::Empty
+                                | GrammarSymbol::End => {}
+                                _ => {
                                     if !has_nt {
                                         has_nt = true;
                                         next_idx = i;
                                     }
                                 }
-                                _ => {}
                             }
                         });
 
@@ -593,15 +721,6 @@ impl Parser {
                             idx = next_idx as usize;
                         } else {
                             idx = self.parse_tree.get_next_nt_sibling(idx);
-                        }
-                    }
-                    GrammarSymbol::Empty => {}
-                    GrammarSymbol::End => {
-                        if token == None {
-                            break;
-                        } else {
-                            // println!("{}", token.unwrap().clone(),);
-                            return Err("syntax error 3".to_string());
                         }
                     }
                 }
@@ -613,25 +732,447 @@ impl Parser {
         }
     }
 
-    pub fn gen(&self) {
-        let mut stack: LinkedList<usize> = LinkedList::new();
+    pub fn generate_ast(&mut self) {
+        let new_ast = AbstractSyntaxTree::new();
+        self.ast = self.build_ast_from_parse_node(new_ast, 0);
+    }
 
-        stack.push_back(0);
-        while !stack.is_empty() {
-            let curr = stack.pop_back().unwrap();
+    pub fn build_ast_from_parse_node(
+        &self,
+        mut tree: AbstractSyntaxTree,
+        idx: usize,
+    ) -> AbstractSyntaxTree {
+        let node = self.parse_tree.get_node(idx);
+        let children = self.parse_tree.get_children(idx);
 
-            match self.parse_tree.adj_list.get(&curr) {
-                Some(children) => {
-                    children.iter().rev().for_each(|child| {
-                        stack.push_back(*child);
-                    });
+        match node {
+            GrammarSymbol::ID => {
+                tree = self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]);
+            }
+            GrammarSymbol::Terminal(Token::ID(id)) => {
+                tree.node = SyntaxTreeNode::Identifier(id);
+            }
+            GrammarSymbol::NodeHeader => {
+                tree.node = SyntaxTreeNode::NodeHeader;
+
+                tree.children = vec![
+                    self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]),
+                    self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]),
+                ];
+            }
+            GrammarSymbol::OptIDList => {
+                if children.len() == 1 {
+                    tree.node = SyntaxTreeNode::Null;
+                } else {
+                    todo!("implement node dependencies");
                 }
-                None => {
-                    if self.parse_tree.node_list[curr] != GrammarSymbol::Empty {
-                        println!("{:?}", self.parse_tree.node_list[curr]);
+            }
+            GrammarSymbol::NodeNT => {
+                tree.node = SyntaxTreeNode::DeclareNode;
+
+                tree.children = vec![
+                    self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]),
+                    self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[2]),
+                ];
+            }
+            GrammarSymbol::Program => match self.parse_tree.get_node(children[0]) {
+                GrammarSymbol::NodeNT => {
+                    tree.node = SyntaxTreeNode::NodeSeq;
+
+                    tree.children = vec![
+                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]),
+                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]),
+                    ];
+                }
+                GrammarSymbol::Empty => {}
+                _ => {}
+            },
+            GrammarSymbol::NodeBlock => {
+                tree = self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]);
+            }
+            GrammarSymbol::TLStmtList => match self.parse_tree.get_node(children[0]) {
+                GrammarSymbol::TLStmt => {
+                    tree.node = SyntaxTreeNode::TLStmtSeq;
+
+                    tree.children = vec![
+                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]),
+                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]),
+                    ];
+                }
+                GrammarSymbol::Empty => {}
+                _ => {}
+            },
+            GrammarSymbol::TLStmt => match self.parse_tree.get_node(children[0]) {
+                GrammarSymbol::Func => {
+                    tree = self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]);
+                }
+                _ => {}
+            },
+            GrammarSymbol::Func => {
+                tree.node = SyntaxTreeNode::DeclareFunc;
+
+                tree.children = vec![
+                    self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]),
+                    self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[3]),
+                    self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[6]),
+                    self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[7]),
+                ];
+            }
+            GrammarSymbol::ParamList => match self.parse_tree.get_node(children[0]) {
+                GrammarSymbol::Param => {
+                    tree.node = SyntaxTreeNode::ParamList;
+
+                    tree.children = vec![
+                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]),
+                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]),
+                    ];
+                }
+                GrammarSymbol::Empty => {}
+                _ => {}
+            },
+            GrammarSymbol::Param => {
+                tree.node = SyntaxTreeNode::Param;
+
+                tree.children = vec![
+                    self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]),
+                    self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[2]),
+                ];
+            }
+            GrammarSymbol::ParamRest => match self.parse_tree.get_node(children[0]) {
+                GrammarSymbol::Terminal(Token::Comma) => {
+                    tree = self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]);
+                }
+                GrammarSymbol::Empty => {}
+                _ => {}
+            },
+            GrammarSymbol::ReturnType => match self.parse_tree.get_node(children[0]) {
+                GrammarSymbol::ID => {
+                    tree.node = SyntaxTreeNode::ReturnType;
+
+                    tree.children = vec![
+                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0])
+                    ];
+                }
+                _ => {
+                    todo!("implement return types");
+                }
+            },
+            GrammarSymbol::Block => {
+                tree = self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]);
+            }
+            GrammarSymbol::StmtList => match self.parse_tree.get_node(children[0]) {
+                GrammarSymbol::Empty => {}
+                _ => {
+                    tree.node = SyntaxTreeNode::StmtSeq;
+
+                    tree.children = vec![
+                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]),
+                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]),
+                    ];
+                }
+            },
+            GrammarSymbol::Stmt => match self.parse_tree.get_node(children[0]) {
+                GrammarSymbol::Terminal(Token::If) => {}
+                GrammarSymbol::Terminal(Token::Const) => {
+                    tree.node = SyntaxTreeNode::DeclareConst;
+
+                    tree.children = vec![
+                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]),
+                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[3]),
+                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[5]),
+                    ];
+                }
+                GrammarSymbol::Terminal(Token::Var) => {
+                    tree.node = SyntaxTreeNode::DeclareVar;
+
+                    tree.children = vec![
+                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]),
+                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[3]),
+                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[5]),
+                    ];
+                }
+                GrammarSymbol::Terminal(Token::While) => {
+                    tree.node = SyntaxTreeNode::WhileLoop;
+
+                    tree.children = vec![
+                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]),
+                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[2]),
+                    ];
+                }
+                GrammarSymbol::Terminal(Token::ID(_)) => {}
+                GrammarSymbol::Terminal(Token::Return) => {
+                    tree.node = SyntaxTreeNode::ReturnValue;
+
+                    tree.children = vec![
+                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1])
+                    ];
+                }
+                _ => {}
+            },
+            GrammarSymbol::Expression => {
+                let subtree =
+                    self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]);
+
+                match subtree.node {
+                    SyntaxTreeNode::AddOp | SyntaxTreeNode::SubOp => {
+                        tree = subtree;
+                        tree.children.insert(
+                            0,
+                            self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]),
+                        );
+
+                        tree = Self::rebalance_expression_tree(tree);
+                    }
+                    _ => {
+                        tree =
+                            self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]);
                     }
                 }
             }
+            GrammarSymbol::Expression1 => match self.parse_tree.get_node(children[0]) {
+                GrammarSymbol::Terminal(Token::Add) => {
+                    let mut subtree =
+                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[2]);
+
+                    match subtree.node {
+                        SyntaxTreeNode::AddOp | SyntaxTreeNode::SubOp => {
+                            tree.node = SyntaxTreeNode::AddOp;
+
+                            subtree.children.insert(
+                                0,
+                                self.build_ast_from_parse_node(
+                                    AbstractSyntaxTree::new(),
+                                    children[1],
+                                ),
+                            );
+
+                            tree.children = vec![subtree];
+                        }
+                        _ => {
+                            tree.node = SyntaxTreeNode::AddOp;
+
+                            tree.children = vec![self
+                                .build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1])];
+                        }
+                    }
+                }
+                GrammarSymbol::Terminal(Token::Sub) => {
+                    let mut subtree =
+                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[2]);
+
+                    match subtree.node {
+                        SyntaxTreeNode::AddOp | SyntaxTreeNode::SubOp => {
+                            tree.node = SyntaxTreeNode::SubOp;
+
+                            subtree.children.insert(
+                                0,
+                                self.build_ast_from_parse_node(
+                                    AbstractSyntaxTree::new(),
+                                    children[1],
+                                ),
+                            );
+
+                            tree.children = vec![subtree];
+                        }
+                        _ => {
+                            tree.node = SyntaxTreeNode::SubOp;
+
+                            tree.children = vec![self
+                                .build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1])];
+                        }
+                    }
+                }
+                _ => {
+                    tree.node = SyntaxTreeNode::Null;
+                }
+            },
+            GrammarSymbol::Term => {
+                let subtree =
+                    self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]);
+
+                match subtree.node {
+                    SyntaxTreeNode::MulOp | SyntaxTreeNode::DivOp => {
+                        tree = subtree;
+                        tree.children.insert(
+                            0,
+                            self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]),
+                        );
+
+                        tree = Self::rebalance_term_tree(tree);
+                    }
+                    _ => {
+                        tree =
+                            self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]);
+                    }
+                }
+            }
+            GrammarSymbol::Term1 => match self.parse_tree.get_node(children[0]) {
+                GrammarSymbol::Terminal(Token::Mul) => {
+                    let mut subtree =
+                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[2]);
+
+                    match subtree.node {
+                        SyntaxTreeNode::MulOp | SyntaxTreeNode::DivOp => {
+                            tree.node = SyntaxTreeNode::MulOp;
+
+                            subtree.children.insert(
+                                0,
+                                self.build_ast_from_parse_node(
+                                    AbstractSyntaxTree::new(),
+                                    children[1],
+                                ),
+                            );
+
+                            tree.children = vec![subtree];
+                        }
+                        _ => {
+                            tree.node = SyntaxTreeNode::MulOp;
+
+                            tree.children = vec![self
+                                .build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1])];
+                        }
+                    }
+                }
+                GrammarSymbol::Terminal(Token::Div) => {
+                    let mut subtree =
+                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[2]);
+
+                    match subtree.node {
+                        SyntaxTreeNode::MulOp | SyntaxTreeNode::DivOp => {
+                            tree.node = SyntaxTreeNode::DivOp;
+
+                            subtree.children.insert(
+                                0,
+                                self.build_ast_from_parse_node(
+                                    AbstractSyntaxTree::new(),
+                                    children[1],
+                                ),
+                            );
+
+                            tree.children = vec![subtree];
+                        }
+                        _ => {
+                            tree.node = SyntaxTreeNode::DivOp;
+
+                            tree.children = vec![self
+                                .build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1])];
+                        }
+                    }
+                }
+                _ => {
+                    tree.node = SyntaxTreeNode::Null;
+                }
+            },
+            GrammarSymbol::Factor => match self.parse_tree.get_node(children[0]) {
+                GrammarSymbol::Terminal(Token::Number(num)) => {
+                    tree.node = SyntaxTreeNode::Number(num);
+                }
+                GrammarSymbol::ID => {
+                    let subtree =
+                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]);
+
+                    match subtree.node {
+                        SyntaxTreeNode::Null => {
+                            tree = self
+                                .build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]);
+                        }
+                        _ => {}
+                    }
+                }
+                _ => {
+                    todo!("implement factors");
+                }
+            },
+            GrammarSymbol::IDOrFn => {
+                if children.len() == 1 {
+                    tree.node = SyntaxTreeNode::Null;
+                } else {
+                    tree = self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]);
+                }
+            }
+            e => {
+                println!("unresolved {:?}", e);
+            }
+        };
+
+        tree
+    }
+
+    fn rebalance_expression_tree(mut tree: AbstractSyntaxTree) -> AbstractSyntaxTree {
+        let mut stack = LinkedList::new();
+
+        let mut root = tree.clone();
+
+        while root.children.len() > 1 {
+            if root.node != SyntaxTreeNode::AddOp && root.node != SyntaxTreeNode::SubOp {
+                break;
+            }
+
+            let mut subtree = root.clone();
+            subtree.children.remove(1);
+            stack.push_back(subtree);
+
+            root = root.children[1].clone();
         }
+
+        stack.push_back(root.clone());
+
+        tree = stack.pop_front().unwrap();
+        while !stack.is_empty() {
+            let mut front = stack.pop_front().unwrap();
+
+            if front.children.len() > 0
+                && (front.node == SyntaxTreeNode::AddOp || front.node == SyntaxTreeNode::SubOp)
+            {
+                tree.children.push(front.children[0].clone());
+
+                front.children = vec![tree];
+
+                tree = front;
+            } else {
+                tree.children.push(front);
+            }
+        }
+
+        tree
+    }
+
+    fn rebalance_term_tree(mut tree: AbstractSyntaxTree) -> AbstractSyntaxTree {
+        let mut stack = LinkedList::new();
+
+        let mut root = tree.clone();
+
+        while root.children.len() > 1 {
+            if root.node != SyntaxTreeNode::MulOp && root.node != SyntaxTreeNode::DivOp {
+                break;
+            }
+
+            let mut subtree = root.clone();
+            subtree.children.remove(1);
+            stack.push_back(subtree);
+
+            root = root.children[1].clone();
+        }
+
+        stack.push_back(root.clone());
+
+        tree = stack.pop_front().unwrap();
+        while !stack.is_empty() {
+            let mut front = stack.pop_front().unwrap();
+
+            if front.children.len() > 0
+                && (front.node == SyntaxTreeNode::MulOp || front.node == SyntaxTreeNode::DivOp)
+            {
+                tree.children.push(front.children[0].clone());
+
+                front.children = vec![tree];
+
+                tree = front;
+            } else {
+                tree.children.push(front);
+            }
+        }
+
+        tree
     }
 }

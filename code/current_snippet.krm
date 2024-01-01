@@ -3,7 +3,7 @@ node HelloKarma {
         return n - 1;
     }
 
-    fn main() -> () {
+    fn main() -> u32 {
         const limit: u32 = 100;
         var a: u32 = 0;
         var b: u32 = 1;
@@ -18,9 +18,9 @@ node HelloKarma {
         }
 
         if a >= limit {
-            a = limit;
+            return limit;
         } else {
-            a = 0;
+            return a;
         }
     }
 }
