@@ -1,8 +1,10 @@
 mod lexer;
 mod parser;
+mod source;
 
 use crate::lexer::Lexer;
 use crate::parser::Parser;
+use crate::source::Source;
 
 fn main() {
     let lexer = Lexer::new("code/current_snippet.krm");
@@ -12,7 +14,7 @@ fn main() {
     match parser.parse() {
         Ok(_) => {
             parser.generate_ast();
-            println!("{:?}", parser.ast);
+            let source = Source::new(parser);
         }
         Err(s) => println!("{s}"),
     }

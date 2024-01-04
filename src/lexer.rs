@@ -27,7 +27,8 @@ static SYMBOLS: phf::Map<&'static str, Token> = phf_map! {
 #[derive(Clone, PartialEq, Debug)]
 pub enum Token {
     ID(String),
-    Number(f64),
+    Integer(i32),
+    Float(f64),
     StringLiteral(String),
     Node,
     Export,
@@ -78,7 +79,8 @@ impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Token::ID(name) => write!(f, "ID: {name}"),
-            Token::Number(num) => write!(f, "Number: {num}"),
+            Token::Integer(int) => write!(f, "Integer: {int}"),
+            Token::Float(float) => write!(f, "Float: {float}"),
             Token::StringLiteral(s) => write!(f, "String literal: {s}"),
             Token::Node => write!(f, "node"),
             Token::Export => write!(f, "export"),
@@ -299,9 +301,9 @@ impl Lexer {
                         let attr = self.chars[self.curr..forward]
                             .into_iter()
                             .collect::<String>();
-                        let val: f64 = attr.parse().expect("Failed to convert to float");
+                        let val: i32 = attr.parse().expect("Failed to convert to float");
                         self.curr = forward;
-                        return Some(Token::Number(val));
+                        return Some(Token::Integer(val));
                     }
                 }
                 6 => {
@@ -311,7 +313,7 @@ impl Lexer {
                             .collect::<String>();
                         let val: f64 = attr.parse().expect("Failed to convert to float");
                         self.curr = forward;
-                        return Some(Token::Number(val));
+                        return Some(Token::Float(val));
                     }
                 }
                 7 => {
@@ -364,9 +366,9 @@ impl Lexer {
                 let attr = self.chars[self.curr..self.chars.len()]
                     .into_iter()
                     .collect::<String>();
-                let val: f64 = attr.parse().expect("Failed to convert to float");
+                let val: i32 = attr.parse().expect("Failed to convert to float");
                 self.curr = self.chars.len();
-                Some(Token::Number(val))
+                Some(Token::Integer(val))
             }
             6 => {
                 let attr = self.chars[self.curr..self.chars.len()]
@@ -374,7 +376,7 @@ impl Lexer {
                     .collect::<String>();
                 let val: f64 = attr.parse().expect("Failed to convert to float");
                 self.curr = self.chars.len();
-                Some(Token::Number(val))
+                Some(Token::Float(val))
             }
             7 => {
                 let attr = self.chars[self.curr..self.chars.len()]

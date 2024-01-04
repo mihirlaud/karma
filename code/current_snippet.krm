@@ -1,13 +1,13 @@
 node HelloKarma {
-    fn decrement(n: i32) -> i32 {
+    fn decrement(n: int) -> int {
         return n - 1;
     }
 
-    fn main() -> u32 {
-        const limit: u32 = 100;
-        var a: u32 = 0;
-        var b: u32 = 1;
-        var n: i32 = 10;
+    fn main() -> int {
+        const limit: int = 100;
+        var a: int = 0;
+        var b: int = 1;
+        var n: int = 10;
 
         while n > 0 && a < limit {
             c = a + b;

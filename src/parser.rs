@@ -1,11 +1,12 @@
 use crate::lexer::{Lexer, Token};
 use std::collections::{HashMap, LinkedList};
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum SyntaxTreeNode {
     NodeSeq,
     DeclareNode,
     NodeHeader,
+    NodeList,
     TLStmtSeq,
     DeclareFunc,
     ParamList,
@@ -32,15 +33,16 @@ pub enum SyntaxTreeNode {
     CompGreater,
     CompLeq,
     CompGeq,
-    Number(f64),
+    Integer(i32),
+    Float(f64),
     Identifier(String),
     Null,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct AbstractSyntaxTree {
-    node: SyntaxTreeNode,
-    children: Vec<AbstractSyntaxTree>,
+    pub node: SyntaxTreeNode,
+    pub children: Vec<AbstractSyntaxTree>,
 }
 
 impl AbstractSyntaxTree {
@@ -66,10 +68,6 @@ impl ParseTree {
             adj_list: HashMap::new(),
             parents_list: HashMap::new(),
         }
-    }
-
-    pub fn size(&self) -> usize {
-        self.node_list.len()
     }
 
     pub fn set_root(&mut self, sym: GrammarSymbol) {
@@ -269,7 +267,8 @@ impl Parser {
                             },
                             GrammarSymbol::BoolExpr => match token.clone() {
                                 Some(Token::ID(_))
-                                | Some(Token::Number(_))
+                                | Some(Token::Integer(_))
+                                | Some(Token::Float(_))
                                 | Some(Token::LeftParen) => {
                                     vec![
                                         GrammarSymbol::Expression,
@@ -284,7 +283,8 @@ impl Parser {
                             GrammarSymbol::BoolTerm => match token.clone() {
                                 Some(Token::ID(_))
                                 | Some(Token::LeftParen)
-                                | Some(Token::Number(_)) => {
+                                | Some(Token::Integer(_))
+                                | Some(Token::Float(_)) => {
                                     vec![GrammarSymbol::BoolExpr, GrammarSymbol::BoolTerm1]
                                 }
                                 _ => {
@@ -322,7 +322,8 @@ impl Parser {
                             GrammarSymbol::Conditional => match token.clone() {
                                 Some(Token::ID(_))
                                 | Some(Token::LeftParen)
-                                | Some(Token::Number(_)) => {
+                                | Some(Token::Integer(_))
+                                | Some(Token::Float(_)) => {
                                     vec![GrammarSymbol::BoolTerm, GrammarSymbol::Conditional1]
                                 }
                                 _ => {
@@ -346,7 +347,8 @@ impl Parser {
                             },
                             GrammarSymbol::Expression => match token.clone() {
                                 Some(Token::ID(_))
-                                | Some(Token::Number(_))
+                                | Some(Token::Integer(_))
+                                | Some(Token::Float(_))
                                 | Some(Token::LeftParen) => {
                                     vec![GrammarSymbol::Term, GrammarSymbol::Expression1]
                                 }
@@ -397,8 +399,11 @@ impl Parser {
                                 Some(Token::ID(_)) => {
                                     vec![GrammarSymbol::ID, GrammarSymbol::IDOrFn]
                                 }
-                                Some(Token::Number(num)) => {
-                                    vec![GrammarSymbol::Terminal(Token::Number(num))]
+                                Some(Token::Integer(num)) => {
+                                    vec![GrammarSymbol::Terminal(Token::Integer(num))]
+                                }
+                                Some(Token::Float(num)) => {
+                                    vec![GrammarSymbol::Terminal(Token::Float(num))]
                                 }
                                 _ => {
                                     return Err("syntax error".to_string());
@@ -461,7 +466,8 @@ impl Parser {
                             },
                             GrammarSymbol::InputList => match token.clone() {
                                 Some(Token::ID(_))
-                                | Some(Token::Number(_))
+                                | Some(Token::Integer(_))
+                                | Some(Token::Float(_))
                                 | Some(Token::LeftParen) => {
                                     vec![GrammarSymbol::Expression, GrammarSymbol::InputRest]
                                 }
@@ -681,7 +687,8 @@ impl Parser {
                             },
                             GrammarSymbol::Term => match token.clone() {
                                 Some(Token::ID(_))
-                                | Some(Token::Number(_))
+                                | Some(Token::Integer(_))
+                                | Some(Token::Float(_))
                                 | Some(Token::LeftParen) => {
                                     vec![GrammarSymbol::Factor, GrammarSymbol::Term1]
                                 }
@@ -788,21 +795,17 @@ impl Parser {
     }
 
     pub fn generate_ast(&mut self) {
-        let new_ast = AbstractSyntaxTree::new();
-        self.ast = self.build_ast_from_parse_node(new_ast, 0);
+        self.ast = self.build_ast_from_parse_node(0);
     }
 
-    pub fn build_ast_from_parse_node(
-        &self,
-        mut tree: AbstractSyntaxTree,
-        idx: usize,
-    ) -> AbstractSyntaxTree {
+    pub fn build_ast_from_parse_node(&self, idx: usize) -> AbstractSyntaxTree {
+        let mut tree = AbstractSyntaxTree::new();
         let node = self.parse_tree.get_node(idx);
         let children = self.parse_tree.get_children(idx);
 
         match node {
             GrammarSymbol::ID => {
-                tree = self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]);
+                tree = self.build_ast_from_parse_node(children[0]);
             }
             GrammarSymbol::Terminal(Token::ID(id)) => {
                 tree.node = SyntaxTreeNode::Identifier(id);
@@ -811,23 +814,38 @@ impl Parser {
                 tree.node = SyntaxTreeNode::NodeHeader;
 
                 tree.children = vec![
-                    self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]),
-                    self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]),
+                    self.build_ast_from_parse_node(children[0]),
+                    self.build_ast_from_parse_node(children[1]),
                 ];
             }
             GrammarSymbol::OptIDList => {
                 if children.len() == 1 {
                     tree.node = SyntaxTreeNode::Null;
                 } else {
-                    todo!("implement node dependencies");
+                    tree = self.build_ast_from_parse_node(children[1]);
                 }
             }
+            GrammarSymbol::NodeList => {
+                tree.node = SyntaxTreeNode::NodeList;
+
+                tree.children = vec![
+                    self.build_ast_from_parse_node(children[0]),
+                    self.build_ast_from_parse_node(children[1]),
+                ];
+            }
+            GrammarSymbol::NodeRest => match self.parse_tree.get_node(children[0]) {
+                GrammarSymbol::Terminal(Token::Comma) => {
+                    tree = self.build_ast_from_parse_node(children[1]);
+                }
+                GrammarSymbol::Empty => {}
+                _ => {}
+            },
             GrammarSymbol::NodeNT => {
                 tree.node = SyntaxTreeNode::DeclareNode;
 
                 tree.children = vec![
-                    self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]),
-                    self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[2]),
+                    self.build_ast_from_parse_node(children[1]),
+                    self.build_ast_from_parse_node(children[2]),
                 ];
             }
             GrammarSymbol::Program => match self.parse_tree.get_node(children[0]) {
@@ -835,23 +853,23 @@ impl Parser {
                     tree.node = SyntaxTreeNode::NodeSeq;
 
                     tree.children = vec![
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]),
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]),
+                        self.build_ast_from_parse_node(children[0]),
+                        self.build_ast_from_parse_node(children[1]),
                     ];
                 }
                 GrammarSymbol::Empty => {}
                 _ => {}
             },
             GrammarSymbol::NodeBlock => {
-                tree = self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]);
+                tree = self.build_ast_from_parse_node(children[1]);
             }
             GrammarSymbol::TLStmtList => match self.parse_tree.get_node(children[0]) {
                 GrammarSymbol::TLStmt => {
                     tree.node = SyntaxTreeNode::TLStmtSeq;
 
                     tree.children = vec![
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]),
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]),
+                        self.build_ast_from_parse_node(children[0]),
+                        self.build_ast_from_parse_node(children[1]),
                     ];
                 }
                 GrammarSymbol::Empty => {}
@@ -859,7 +877,7 @@ impl Parser {
             },
             GrammarSymbol::TLStmt => match self.parse_tree.get_node(children[0]) {
                 GrammarSymbol::Func => {
-                    tree = self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]);
+                    tree = self.build_ast_from_parse_node(children[0]);
                 }
                 _ => {}
             },
@@ -867,10 +885,10 @@ impl Parser {
                 tree.node = SyntaxTreeNode::DeclareFunc;
 
                 tree.children = vec![
-                    self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]),
-                    self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[3]),
-                    self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[6]),
-                    self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[7]),
+                    self.build_ast_from_parse_node(children[1]),
+                    self.build_ast_from_parse_node(children[3]),
+                    self.build_ast_from_parse_node(children[6]),
+                    self.build_ast_from_parse_node(children[7]),
                 ];
             }
             GrammarSymbol::ParamList => match self.parse_tree.get_node(children[0]) {
@@ -878,8 +896,8 @@ impl Parser {
                     tree.node = SyntaxTreeNode::ParamList;
 
                     tree.children = vec![
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]),
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]),
+                        self.build_ast_from_parse_node(children[0]),
+                        self.build_ast_from_parse_node(children[1]),
                     ];
                 }
                 GrammarSymbol::Empty => {}
@@ -889,13 +907,13 @@ impl Parser {
                 tree.node = SyntaxTreeNode::Param;
 
                 tree.children = vec![
-                    self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]),
-                    self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[2]),
+                    self.build_ast_from_parse_node(children[0]),
+                    self.build_ast_from_parse_node(children[2]),
                 ];
             }
             GrammarSymbol::ParamRest => match self.parse_tree.get_node(children[0]) {
                 GrammarSymbol::Terminal(Token::Comma) => {
-                    tree = self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]);
+                    tree = self.build_ast_from_parse_node(children[1]);
                 }
                 GrammarSymbol::Empty => {}
                 _ => {}
@@ -904,16 +922,14 @@ impl Parser {
                 GrammarSymbol::ID => {
                     tree.node = SyntaxTreeNode::ReturnType;
 
-                    tree.children = vec![
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0])
-                    ];
+                    tree.children = vec![self.build_ast_from_parse_node(children[0])];
                 }
                 _ => {
                     todo!("implement return types");
                 }
             },
             GrammarSymbol::Block => {
-                tree = self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]);
+                tree = self.build_ast_from_parse_node(children[1]);
             }
             GrammarSymbol::StmtList => match self.parse_tree.get_node(children[0]) {
                 GrammarSymbol::Empty => {}
@@ -921,8 +937,8 @@ impl Parser {
                     tree.node = SyntaxTreeNode::StmtSeq;
 
                     tree.children = vec![
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]),
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]),
+                        self.build_ast_from_parse_node(children[0]),
+                        self.build_ast_from_parse_node(children[1]),
                     ];
                 }
             },
@@ -931,57 +947,53 @@ impl Parser {
                     tree.node = SyntaxTreeNode::IfStmt;
 
                     tree.children = vec![
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]),
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[2]),
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[3]),
+                        self.build_ast_from_parse_node(children[1]),
+                        self.build_ast_from_parse_node(children[2]),
+                        self.build_ast_from_parse_node(children[3]),
                     ];
                 }
                 GrammarSymbol::Terminal(Token::Const) => {
                     tree.node = SyntaxTreeNode::DeclareConst;
 
                     tree.children = vec![
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]),
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[3]),
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[5]),
+                        self.build_ast_from_parse_node(children[1]),
+                        self.build_ast_from_parse_node(children[3]),
+                        self.build_ast_from_parse_node(children[5]),
                     ];
                 }
                 GrammarSymbol::Terminal(Token::Var) => {
                     tree.node = SyntaxTreeNode::DeclareVar;
 
                     tree.children = vec![
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]),
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[3]),
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[5]),
+                        self.build_ast_from_parse_node(children[1]),
+                        self.build_ast_from_parse_node(children[3]),
+                        self.build_ast_from_parse_node(children[5]),
                     ];
                 }
                 GrammarSymbol::Terminal(Token::While) => {
                     tree.node = SyntaxTreeNode::WhileLoop;
 
                     tree.children = vec![
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]),
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[2]),
+                        self.build_ast_from_parse_node(children[1]),
+                        self.build_ast_from_parse_node(children[2]),
                     ];
                 }
                 GrammarSymbol::ID => {
-                    tree = self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]);
+                    tree = self.build_ast_from_parse_node(children[1]);
 
-                    tree.children.insert(
-                        0,
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]),
-                    );
+                    tree.children
+                        .insert(0, self.build_ast_from_parse_node(children[0]));
                 }
                 GrammarSymbol::Terminal(Token::Return) => {
                     tree.node = SyntaxTreeNode::ReturnValue;
 
-                    tree.children = vec![
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1])
-                    ];
+                    tree.children = vec![self.build_ast_from_parse_node(children[1])];
                 }
                 _ => {}
             },
             GrammarSymbol::OptElse => match self.parse_tree.get_node(children[0]) {
                 GrammarSymbol::Terminal(Token::Else) => {
-                    tree = self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]);
+                    tree = self.build_ast_from_parse_node(children[1]);
                 }
                 GrammarSymbol::Empty => {
                     tree.node = SyntaxTreeNode::Null;
@@ -992,89 +1004,69 @@ impl Parser {
                 GrammarSymbol::Terminal(Token::Assign) => {
                     tree.node = SyntaxTreeNode::Assign;
 
-                    tree.children = vec![
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1])
-                    ];
+                    tree.children = vec![self.build_ast_from_parse_node(children[1])];
                 }
                 GrammarSymbol::Terminal(Token::LeftParen) => {
                     tree.node = SyntaxTreeNode::FnCall;
 
-                    tree.children = vec![
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1])
-                    ];
+                    tree.children = vec![self.build_ast_from_parse_node(children[1])];
                 }
                 _ => {}
             },
             GrammarSymbol::Expression => {
-                let subtree =
-                    self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]);
+                let subtree = self.build_ast_from_parse_node(children[1]);
 
                 match subtree.node {
                     SyntaxTreeNode::AddOp | SyntaxTreeNode::SubOp => {
                         tree = subtree;
-                        tree.children.insert(
-                            0,
-                            self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]),
-                        );
+                        tree.children
+                            .insert(0, self.build_ast_from_parse_node(children[0]));
 
                         tree = Self::rebalance_expression_tree(tree);
                     }
                     _ => {
-                        tree =
-                            self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]);
+                        tree = self.build_ast_from_parse_node(children[0]);
                     }
                 }
             }
             GrammarSymbol::Expression1 => match self.parse_tree.get_node(children[0]) {
                 GrammarSymbol::Terminal(Token::Add) => {
-                    let mut subtree =
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[2]);
+                    let mut subtree = self.build_ast_from_parse_node(children[2]);
 
                     match subtree.node {
                         SyntaxTreeNode::AddOp | SyntaxTreeNode::SubOp => {
                             tree.node = SyntaxTreeNode::AddOp;
 
-                            subtree.children.insert(
-                                0,
-                                self.build_ast_from_parse_node(
-                                    AbstractSyntaxTree::new(),
-                                    children[1],
-                                ),
-                            );
+                            subtree
+                                .children
+                                .insert(0, self.build_ast_from_parse_node(children[1]));
 
                             tree.children = vec![subtree];
                         }
                         _ => {
                             tree.node = SyntaxTreeNode::AddOp;
 
-                            tree.children = vec![self
-                                .build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1])];
+                            tree.children = vec![self.build_ast_from_parse_node(children[1])];
                         }
                     }
                 }
                 GrammarSymbol::Terminal(Token::Sub) => {
-                    let mut subtree =
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[2]);
+                    let mut subtree = self.build_ast_from_parse_node(children[2]);
 
                     match subtree.node {
                         SyntaxTreeNode::AddOp | SyntaxTreeNode::SubOp => {
                             tree.node = SyntaxTreeNode::SubOp;
 
-                            subtree.children.insert(
-                                0,
-                                self.build_ast_from_parse_node(
-                                    AbstractSyntaxTree::new(),
-                                    children[1],
-                                ),
-                            );
+                            subtree
+                                .children
+                                .insert(0, self.build_ast_from_parse_node(children[1]));
 
                             tree.children = vec![subtree];
                         }
                         _ => {
                             tree.node = SyntaxTreeNode::SubOp;
 
-                            tree.children = vec![self
-                                .build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1])];
+                            tree.children = vec![self.build_ast_from_parse_node(children[1])];
                         }
                     }
                 }
@@ -1083,75 +1075,59 @@ impl Parser {
                 }
             },
             GrammarSymbol::Term => {
-                let subtree =
-                    self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]);
+                let subtree = self.build_ast_from_parse_node(children[1]);
 
                 match subtree.node {
                     SyntaxTreeNode::MulOp | SyntaxTreeNode::DivOp => {
                         tree = subtree;
-                        tree.children.insert(
-                            0,
-                            self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]),
-                        );
+                        tree.children
+                            .insert(0, self.build_ast_from_parse_node(children[0]));
 
                         tree = Self::rebalance_term_tree(tree);
                     }
                     _ => {
-                        tree =
-                            self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]);
+                        tree = self.build_ast_from_parse_node(children[0]);
                     }
                 }
             }
             GrammarSymbol::Term1 => match self.parse_tree.get_node(children[0]) {
                 GrammarSymbol::Terminal(Token::Mul) => {
-                    let mut subtree =
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[2]);
+                    let mut subtree = self.build_ast_from_parse_node(children[2]);
 
                     match subtree.node {
                         SyntaxTreeNode::MulOp | SyntaxTreeNode::DivOp => {
                             tree.node = SyntaxTreeNode::MulOp;
 
-                            subtree.children.insert(
-                                0,
-                                self.build_ast_from_parse_node(
-                                    AbstractSyntaxTree::new(),
-                                    children[1],
-                                ),
-                            );
+                            subtree
+                                .children
+                                .insert(0, self.build_ast_from_parse_node(children[1]));
 
                             tree.children = vec![subtree];
                         }
                         _ => {
                             tree.node = SyntaxTreeNode::MulOp;
 
-                            tree.children = vec![self
-                                .build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1])];
+                            tree.children = vec![self.build_ast_from_parse_node(children[1])];
                         }
                     }
                 }
                 GrammarSymbol::Terminal(Token::Div) => {
-                    let mut subtree =
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[2]);
+                    let mut subtree = self.build_ast_from_parse_node(children[2]);
 
                     match subtree.node {
                         SyntaxTreeNode::MulOp | SyntaxTreeNode::DivOp => {
                             tree.node = SyntaxTreeNode::DivOp;
 
-                            subtree.children.insert(
-                                0,
-                                self.build_ast_from_parse_node(
-                                    AbstractSyntaxTree::new(),
-                                    children[1],
-                                ),
-                            );
+                            subtree
+                                .children
+                                .insert(0, self.build_ast_from_parse_node(children[1]));
 
                             tree.children = vec![subtree];
                         }
                         _ => {
                             tree.node = SyntaxTreeNode::DivOp;
 
-                            tree.children = vec![self
-                                .build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1])];
+                            tree.children = vec![self.build_ast_from_parse_node(children[1])];
                         }
                     }
                 }
@@ -1160,87 +1136,74 @@ impl Parser {
                 }
             },
             GrammarSymbol::Factor => match self.parse_tree.get_node(children[0]) {
-                GrammarSymbol::Terminal(Token::Number(num)) => {
-                    tree.node = SyntaxTreeNode::Number(num);
+                GrammarSymbol::Terminal(Token::Integer(num)) => {
+                    tree.node = SyntaxTreeNode::Integer(num);
+                }
+                GrammarSymbol::Terminal(Token::Float(num)) => {
+                    tree.node = SyntaxTreeNode::Float(num);
                 }
                 GrammarSymbol::ID => {
-                    let subtree =
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]);
+                    let subtree = self.build_ast_from_parse_node(children[1]);
 
                     match subtree.node {
                         SyntaxTreeNode::Null => {
-                            tree = self
-                                .build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]);
+                            tree = self.build_ast_from_parse_node(children[0]);
                         }
                         SyntaxTreeNode::InputList => {
                             tree.node = SyntaxTreeNode::FnCall;
 
-                            tree.children = vec![
-                                self.build_ast_from_parse_node(
-                                    AbstractSyntaxTree::new(),
-                                    children[0],
-                                ),
-                                subtree,
-                            ];
+                            tree.children =
+                                vec![self.build_ast_from_parse_node(children[0]), subtree];
                         }
                         _ => {}
                     }
                 }
-                _ => {
-                    todo!("implement factors");
+                GrammarSymbol::Terminal(Token::LeftParen) => {
+                    tree = self.build_ast_from_parse_node(children[1]);
                 }
+                _ => {}
             },
             GrammarSymbol::IDOrFn => {
                 if children.len() == 1 {
                     tree.node = SyntaxTreeNode::Null;
                 } else {
-                    tree = self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]);
+                    tree = self.build_ast_from_parse_node(children[1]);
                 }
             }
             GrammarSymbol::Conditional => {
-                let subtree =
-                    self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]);
+                let subtree = self.build_ast_from_parse_node(children[1]);
 
                 match subtree.node {
                     SyntaxTreeNode::OrOp => {
                         tree = subtree;
-                        tree.children.insert(
-                            0,
-                            self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]),
-                        );
+                        tree.children
+                            .insert(0, self.build_ast_from_parse_node(children[0]));
 
                         tree = Self::rebalance_comparison_tree(tree);
                     }
                     _ => {
-                        tree =
-                            self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]);
+                        tree = self.build_ast_from_parse_node(children[0]);
                     }
                 }
             }
             GrammarSymbol::Conditional1 => match self.parse_tree.get_node(children[0]) {
                 GrammarSymbol::Terminal(Token::LogicalOr) => {
-                    let mut subtree =
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[2]);
+                    let mut subtree = self.build_ast_from_parse_node(children[2]);
 
                     match subtree.node {
                         SyntaxTreeNode::OrOp => {
                             tree.node = SyntaxTreeNode::OrOp;
 
-                            subtree.children.insert(
-                                0,
-                                self.build_ast_from_parse_node(
-                                    AbstractSyntaxTree::new(),
-                                    children[1],
-                                ),
-                            );
+                            subtree
+                                .children
+                                .insert(0, self.build_ast_from_parse_node(children[1]));
 
                             tree.children = vec![subtree];
                         }
                         _ => {
                             tree.node = SyntaxTreeNode::OrOp;
 
-                            tree.children = vec![self
-                                .build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1])];
+                            tree.children = vec![self.build_ast_from_parse_node(children[1])];
                         }
                     }
                 }
@@ -1249,49 +1212,39 @@ impl Parser {
                 }
             },
             GrammarSymbol::BoolTerm => {
-                let subtree =
-                    self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]);
+                let subtree = self.build_ast_from_parse_node(children[1]);
 
                 match subtree.node {
                     SyntaxTreeNode::AndOp => {
                         tree = subtree;
-                        tree.children.insert(
-                            0,
-                            self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]),
-                        );
+                        tree.children
+                            .insert(0, self.build_ast_from_parse_node(children[0]));
 
                         tree = Self::rebalance_bool_term_tree(tree);
                     }
                     _ => {
-                        tree =
-                            self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]);
+                        tree = self.build_ast_from_parse_node(children[0]);
                     }
                 }
             }
             GrammarSymbol::BoolTerm1 => match self.parse_tree.get_node(children[0]) {
                 GrammarSymbol::Terminal(Token::LogicalAnd) => {
-                    let mut subtree =
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[2]);
+                    let mut subtree = self.build_ast_from_parse_node(children[2]);
 
                     match subtree.node {
                         SyntaxTreeNode::AndOp => {
                             tree.node = SyntaxTreeNode::AndOp;
 
-                            subtree.children.insert(
-                                0,
-                                self.build_ast_from_parse_node(
-                                    AbstractSyntaxTree::new(),
-                                    children[1],
-                                ),
-                            );
+                            subtree
+                                .children
+                                .insert(0, self.build_ast_from_parse_node(children[1]));
 
                             tree.children = vec![subtree];
                         }
                         _ => {
                             tree.node = SyntaxTreeNode::AndOp;
 
-                            tree.children = vec![self
-                                .build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1])];
+                            tree.children = vec![self.build_ast_from_parse_node(children[1])];
                         }
                     }
                 }
@@ -1300,17 +1253,17 @@ impl Parser {
                 }
             },
             GrammarSymbol::BoolExpr => {
-                let comp = self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]);
+                let comp = self.build_ast_from_parse_node(children[1]);
 
                 tree.node = comp.node;
 
                 tree.children = vec![
-                    self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]),
-                    self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[2]),
+                    self.build_ast_from_parse_node(children[0]),
+                    self.build_ast_from_parse_node(children[2]),
                 ];
             }
             GrammarSymbol::Comparison => {
-                tree = self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]);
+                tree = self.build_ast_from_parse_node(children[0]);
             }
             GrammarSymbol::Terminal(Token::Equals) => {
                 tree.node = SyntaxTreeNode::CompEq;
@@ -1338,8 +1291,8 @@ impl Parser {
                     tree.node = SyntaxTreeNode::InputList;
 
                     tree.children = vec![
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[0]),
-                        self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]),
+                        self.build_ast_from_parse_node(children[0]),
+                        self.build_ast_from_parse_node(children[1]),
                     ];
                 }
                 _ => {}
@@ -1349,7 +1302,7 @@ impl Parser {
                     tree.node = SyntaxTreeNode::Null;
                 }
                 GrammarSymbol::Terminal(Token::Comma) => {
-                    tree = self.build_ast_from_parse_node(AbstractSyntaxTree::new(), children[1]);
+                    tree = self.build_ast_from_parse_node(children[1]);
                 }
                 _ => {}
             },
