@@ -12,6 +12,8 @@ pub enum SyntaxTreeNode {
     ParamList,
     Param,
     ReturnType,
+    Void,
+    NoReturn,
     StmtSeq,
     DeclareVar,
     DeclareConst,
@@ -923,6 +925,22 @@ impl Parser {
                     tree.node = SyntaxTreeNode::ReturnType;
 
                     tree.children = vec![self.build_ast_from_parse_node(children[0])];
+                }
+                GrammarSymbol::Terminal(Token::LeftParen) => {
+                    tree.node = SyntaxTreeNode::ReturnType;
+
+                    let mut child = AbstractSyntaxTree::new();
+                    child.node = SyntaxTreeNode::Void;
+
+                    tree.children = vec![child];
+                }
+                GrammarSymbol::Terminal(Token::Not) => {
+                    tree.node = SyntaxTreeNode::ReturnType;
+
+                    let mut child = AbstractSyntaxTree::new();
+                    child.node = SyntaxTreeNode::NoReturn;
+
+                    tree.children = vec![child];
                 }
                 _ => {
                     todo!("implement return types");
