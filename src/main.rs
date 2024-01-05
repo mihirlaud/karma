@@ -15,6 +15,7 @@ fn main() {
         Ok(_) => {
             parser.generate_ast();
             let source = Source::new(parser);
+            source.generate_assembly();
         }
         Err(s) => println!("{s}"),
     }

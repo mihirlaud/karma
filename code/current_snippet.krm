@@ -10,7 +10,7 @@ node HelloKarma {
         var n: int = 10;
 
         while n > 0 && a < limit {
-            c = a + b;
+            var c: int = a + b;
             a = b;
             b = c;
 
