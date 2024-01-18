@@ -1,11 +1,7 @@
-section .bss
 
-section .data
-    hello: db "Hi Mom!", 10
-    helloLen: equ $-hello
+global _start
 
 section .text
-    global _start
 
     _start:
         mov rax, 1
@@ -17,3 +13,8 @@ section .text
         mov rax, 60
         mov rdi, 0
         syscall
+
+
+section .data
+    hello: db "Hello world!", 10
+    helloLen: equ $-hello

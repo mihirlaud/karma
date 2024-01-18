@@ -9,18 +9,14 @@ node HelloKarma {
         var b: int = 1;
         var n: int = 10;
 
-        while n > 0 && a < limit {
+        while n > 0 {
             var c: int = a + b;
             a = b;
             b = c;
 
-            n = decrement(n);
+            n = n - 1;
         }
 
-        if a >= limit {
-            return limit;
-        } else {
-            return a;
-        }
+        return a;
     }
 }
