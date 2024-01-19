@@ -1,0 +1,7 @@
+[stack-mgmt.push]
+operands = ["int"]
+bytecode = 0x0000_0001
+
+[stack-mgmt.pop]
+operands = ["int"]
+bytecode = 0x0000_0010

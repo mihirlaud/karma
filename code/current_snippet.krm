@@ -3,20 +3,18 @@ node HelloKarma {
         return n - 1;
     }
 
-    fn main() -> int {
+    fn main() -> () {
         const limit: int = 100;
         var a: int = 0;
         var b: int = 1;
         var n: int = 10;
 
-        while n > 0 {
+        while n > 0 && a <= limit {
             var c: int = a + b;
             a = b;
             b = c;
 
-            n = n - 1;
+            n = decrement(n);
         }
-
-        return a;
     }
 }
