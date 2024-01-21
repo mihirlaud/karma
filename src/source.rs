@@ -1,4 +1,7 @@
-use std::collections::{HashMap, LinkedList};
+use std::{
+    collections::{HashMap, HashSet, LinkedList},
+    hash::Hash,
+};
 
 use crate::parser::{AbstractSyntaxTree, Parser, SyntaxTreeNode};
 
@@ -11,26 +14,18 @@ enum ScopeElem {
     ElseScope,
     Variable(String),
     Const(String),
-    Func(String),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-enum SymbolTableKey {
-    ID(String),
-    Int(String),
-    Float(String),
-}
-
-#[derive(Clone, Debug, PartialEq)]
-enum SymbolTableEntry {
-    Variable(String),
-    Const(String),
-    Function(String, Vec<String>),
+#[derive(Debug, Clone)]
+enum TLElement {
+    Function(String, Vec<String>, HashSet<(String, String)>),
+    Struct,
+    Export,
 }
 
 pub struct Source {
     graph: HashMap<String, Vec<String>>,
-    symbol_table: HashMap<SymbolTableKey, SymbolTableEntry>,
+    symbol_table: HashMap<String, HashMap<String, TLElement>>,
     ast: AbstractSyntaxTree,
 }
 
@@ -39,16 +34,17 @@ impl Source {
         let mut graph = HashMap::new();
         Self::create_node_graph(&mut graph, parser.ast.clone());
 
-        let mut stack = LinkedList::new();
-
-        Self::check_semantics(&mut stack, parser.ast.clone())?;
-
         let mut symbol_table = HashMap::new();
-        Self::generate_symbol_table(&mut symbol_table, parser.ast.clone(), String::new());
+        Self::seed_symbol_table(&mut symbol_table, parser.ast.clone())?;
+        println!("{:?}", symbol_table);
 
-        Self::check_types(&symbol_table, parser.ast.clone(), String::new())?;
+        let mut stack = LinkedList::new();
+        Self::check_semantics(&mut stack, &mut symbol_table, parser.ast.clone())?;
+        println!("{:?}", symbol_table);
 
-        Self::check_return(&symbol_table, parser.ast.clone(), String::new())?;
+        Self::check_types(&symbol_table, parser.ast.clone())?;
+
+        // Self::check_return(&symbol_table, parser.ast.clone(), String::new())?;
 
         Ok(Self {
             graph,
@@ -106,59 +102,266 @@ impl Source {
         }
     }
 
-    fn check_semantics(
-        stack: &mut LinkedList<ScopeElem>,
+    fn seed_symbol_table(
+        symbol_table: &mut HashMap<String, HashMap<String, TLElement>>,
         ast: AbstractSyntaxTree,
     ) -> Result<(), ()> {
-        let children = ast.children.clone();
         match ast.node {
-            SyntaxTreeNode::NodeSeq => {
-                let decl_node = children[0].clone();
-                let node_header = decl_node.children[0].clone();
-                let node_id = match node_header.children[0].clone().node {
+            SyntaxTreeNode::DeclareNode => {
+                let header = ast.children[0].clone();
+                let id = match header.children[0].clone().node {
                     SyntaxTreeNode::Identifier(id) => id,
                     _ => "".to_string(),
                 };
 
-                stack.push_back(ScopeElem::NodeScope(node_id.clone()));
+                if symbol_table.contains_key(&id) {
+                    return Err(());
+                }
 
-                Self::check_semantics(stack, decl_node.children[1].clone())?;
+                Self::sst_node(symbol_table, ast.children[1].clone(), id)?;
+            }
+            _ => {
+                for child in ast.children.clone() {
+                    Self::seed_symbol_table(symbol_table, child)?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn sst_node(
+        symbol_table: &mut HashMap<String, HashMap<String, TLElement>>,
+        ast: AbstractSyntaxTree,
+        node_id: String,
+    ) -> Result<(), ()> {
+        match ast.node {
+            SyntaxTreeNode::DeclareFunc => {
+                let id = match ast.children[0].clone().node {
+                    SyntaxTreeNode::Identifier(id) => id,
+                    _ => "".to_string(),
+                };
+
+                let ret = match ast.children[2].clone().children[0].clone().node {
+                    SyntaxTreeNode::Identifier(id) => id,
+                    _ => "".to_string(),
+                };
+
+                let params = Self::sst_func(ast.children[1].clone())?;
+
+                let param_types = params.iter().map(|(_, t)| t.clone()).collect();
+
+                let entry = TLElement::Function(ret, param_types, params);
+
+                let mut map = match symbol_table.get(&node_id) {
+                    Some(m) => m.clone(),
+                    None => HashMap::new(),
+                };
+
+                if map.contains_key(&id) {
+                    return Err(());
+                }
+
+                map.insert(id, entry);
+                symbol_table.insert(node_id, map);
+            }
+            _ => {
+                for child in ast.children.clone() {
+                    Self::sst_node(symbol_table, child, node_id.clone())?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn sst_func(ast: AbstractSyntaxTree) -> Result<HashSet<(String, String)>, ()> {
+        match ast.node {
+            SyntaxTreeNode::ParamList => {
+                let param = Self::sst_func(ast.children[0].clone())?;
+                let mut rest = Self::sst_func(ast.children[1].clone())?;
+
+                for p in param {
+                    if rest.contains(&p) {
+                        return Err(());
+                    }
+                    rest.insert(p);
+                }
+
+                Ok(rest)
+            }
+            SyntaxTreeNode::Param => {
+                let id = match ast.children[0].clone().node {
+                    SyntaxTreeNode::Identifier(id) => id,
+                    _ => "".to_string(),
+                };
+
+                let t = match ast.children[1].clone().node {
+                    SyntaxTreeNode::Identifier(id) => id,
+                    _ => "".to_string(),
+                };
+
+                Ok(HashSet::from([(id, t)]))
+            }
+            _ => Ok(HashSet::new()),
+        }
+    }
+
+    fn check_semantics(
+        stack: &mut LinkedList<ScopeElem>,
+        symbol_table: &mut HashMap<String, HashMap<String, TLElement>>,
+        ast: AbstractSyntaxTree,
+    ) -> Result<(), ()> {
+        let children = ast.children.clone();
+
+        match ast.node {
+            SyntaxTreeNode::DeclareNode => {
+                let header = children[0].clone();
+                let id = match header.children[0].clone().node {
+                    SyntaxTreeNode::Identifier(id) => id,
+                    _ => "".to_string(),
+                };
+
+                stack.push_back(ScopeElem::NodeScope(id.clone()));
+
+                Self::check_semantics(stack, symbol_table, children[1].clone())?;
 
                 while !stack.is_empty() {
                     let top = stack.pop_back().unwrap();
 
-                    if top == ScopeElem::NodeScope(node_id.clone()) {
+                    if top == ScopeElem::NodeScope(id.clone()) {
                         break;
                     }
                 }
             }
             SyntaxTreeNode::DeclareFunc => {
-                let func_id = match children[0].clone().node {
+                let id = match children[0].clone().node {
                     SyntaxTreeNode::Identifier(id) => id,
                     _ => "".to_string(),
                 };
 
-                stack.push_back(ScopeElem::FuncScope(func_id.clone()));
+                stack.push_back(ScopeElem::FuncScope(id.clone()));
 
-                Self::check_semantics(stack, children[1].clone())?;
+                Self::check_semantics(stack, symbol_table, children[1].clone())?;
 
-                Self::check_semantics(stack, children[3].clone())?;
+                Self::check_semantics(stack, symbol_table, children[3].clone())?;
 
                 while !stack.is_empty() {
                     let top = stack.pop_back().unwrap();
 
-                    if top == ScopeElem::FuncScope(func_id.clone()) {
-                        stack.push_back(ScopeElem::Func(func_id));
+                    if top == ScopeElem::FuncScope(id.clone()) {
                         break;
                     }
                 }
             }
-            SyntaxTreeNode::WhileLoop => {
-                Self::check_semantics(stack, children[0].clone())?;
+            SyntaxTreeNode::DeclareConst => {
+                Self::check_semantics(stack, symbol_table, children[2].clone())?;
 
+                let id = match children[0].clone().node {
+                    SyntaxTreeNode::Identifier(id) => id,
+                    _ => "".to_string(),
+                };
+
+                let t = match children[1].clone().node {
+                    SyntaxTreeNode::Identifier(i) => i,
+                    _ => "".to_string(),
+                };
+
+                let mut node_id = String::new();
+                let mut fn_id = String::new();
+                for elem in stack.clone() {
+                    if elem == ScopeElem::Const(id.clone()) {
+                        return Err(());
+                    }
+
+                    match elem {
+                        ScopeElem::NodeScope(n) => {
+                            node_id = n.clone();
+                        }
+                        ScopeElem::FuncScope(f) => {
+                            fn_id = f.clone();
+                        }
+                        _ => {}
+                    }
+                }
+
+                let mut map = symbol_table[&node_id].clone();
+                let e = map[&fn_id].clone();
+                let (ret_t, in_t, mut var_set) = match e {
+                    TLElement::Function(ret, t, s) => (ret, t, s),
+                    _ => (String::new(), vec![], HashSet::new()),
+                };
+
+                var_set.insert((id.clone(), t.clone()));
+                map.insert(fn_id, TLElement::Function(ret_t, in_t, var_set));
+                symbol_table.insert(node_id, map);
+
+                stack.push_back(ScopeElem::Const(id));
+            }
+            SyntaxTreeNode::DeclareVar => {
+                Self::check_semantics(stack, symbol_table, children[2].clone())?;
+
+                let id = match children[0].clone().node {
+                    SyntaxTreeNode::Identifier(id) => id,
+                    _ => "".to_string(),
+                };
+
+                let t = match children[1].clone().node {
+                    SyntaxTreeNode::Identifier(i) => i,
+                    _ => "".to_string(),
+                };
+
+                let mut node_id = String::new();
+                let mut fn_id = String::new();
+                for elem in stack.clone() {
+                    if elem == ScopeElem::Variable(id.clone()) {
+                        return Err(());
+                    }
+
+                    match elem {
+                        ScopeElem::NodeScope(n) => {
+                            node_id = n.clone();
+                        }
+                        ScopeElem::FuncScope(f) => {
+                            fn_id = f.clone();
+                        }
+                        _ => {}
+                    }
+                }
+
+                let mut map = symbol_table[&node_id].clone();
+                let e = map[&fn_id].clone();
+                let (ret_t, in_t, mut var_set) = match e {
+                    TLElement::Function(ret, t, s) => (ret, t, s),
+                    _ => (String::new(), vec![], HashSet::new()),
+                };
+
+                var_set.insert((id.clone(), t.clone()));
+                map.insert(fn_id, TLElement::Function(ret_t, in_t, var_set));
+                symbol_table.insert(node_id, map);
+
+                stack.push_back(ScopeElem::Variable(id));
+            }
+            SyntaxTreeNode::Assign => {
+                Self::check_semantics(stack, symbol_table, children[1].clone())?;
+
+                let id = match children[0].clone().node {
+                    SyntaxTreeNode::Identifier(id) => id,
+                    _ => "".to_string(),
+                };
+
+                for elem in stack.clone() {
+                    if elem == ScopeElem::Variable(id.clone()) {
+                        return Ok(());
+                    }
+                }
+
+                return Err(());
+            }
+            SyntaxTreeNode::WhileLoop => {
                 stack.push_back(ScopeElem::WhileScope);
 
-                Self::check_semantics(stack, children[1].clone())?;
+                Self::check_semantics(stack, symbol_table, children[1].clone())?;
 
                 while !stack.is_empty() {
                     let top = stack.pop_back().unwrap();
@@ -169,11 +372,9 @@ impl Source {
                 }
             }
             SyntaxTreeNode::IfStmt => {
-                Self::check_semantics(stack, children[0].clone())?;
-
                 stack.push_back(ScopeElem::IfScope);
 
-                Self::check_semantics(stack, children[1].clone())?;
+                Self::check_semantics(stack, symbol_table, children[1].clone())?;
 
                 while !stack.is_empty() {
                     let top = stack.pop_back().unwrap();
@@ -186,7 +387,7 @@ impl Source {
                 if children[2].clone().node != SyntaxTreeNode::Null {
                     stack.push_back(ScopeElem::ElseScope);
 
-                    Self::check_semantics(stack, children[2].clone())?;
+                    Self::check_semantics(stack, symbol_table, children[2].clone())?;
 
                     while !stack.is_empty() {
                         let top = stack.pop_back().unwrap();
@@ -205,58 +406,7 @@ impl Source {
                 };
                 stack.push_back(ScopeElem::Variable(id));
 
-                Self::check_semantics(stack, children[1].clone())?;
-            }
-            SyntaxTreeNode::DeclareConst => {
-                Self::check_semantics(stack, children[2].clone())?;
-
-                let id = match children[0].clone().node {
-                    SyntaxTreeNode::Identifier(id) => id,
-                    _ => "".to_string(),
-                };
-
-                for elem in stack.clone() {
-                    if elem.clone() == ScopeElem::Variable(id.clone())
-                        || elem.clone() == ScopeElem::Const(id.clone())
-                    {
-                        return Err(());
-                    }
-                }
-
-                stack.push_back(ScopeElem::Const(id));
-            }
-            SyntaxTreeNode::DeclareVar => {
-                Self::check_semantics(stack, children[2].clone())?;
-
-                let id = match children[0].clone().node {
-                    SyntaxTreeNode::Identifier(id) => id,
-                    _ => "".to_string(),
-                };
-
-                for elem in stack.clone() {
-                    if elem.clone() == ScopeElem::Variable(id.clone())
-                        || elem.clone() == ScopeElem::Const(id.clone())
-                    {
-                        return Err(());
-                    }
-                }
-
-                stack.push_back(ScopeElem::Variable(id));
-            }
-            SyntaxTreeNode::Assign => {
-                Self::check_semantics(stack, children[1].clone())?;
-
-                let id = match children[0].clone().node {
-                    SyntaxTreeNode::Identifier(id) => id,
-                    _ => "".to_string(),
-                };
-                for elem in stack {
-                    if elem.clone() == ScopeElem::Variable(id.clone()) {
-                        return Ok(());
-                    }
-                }
-
-                return Err(());
+                Self::check_semantics(stack, symbol_table, children[1].clone())?;
             }
             SyntaxTreeNode::AddOp
             | SyntaxTreeNode::SubOp
@@ -270,8 +420,8 @@ impl Source {
             | SyntaxTreeNode::CompGeq
             | SyntaxTreeNode::CompLess
             | SyntaxTreeNode::CompGreater => {
-                Self::check_semantics(stack, children[0].clone())?;
-                Self::check_semantics(stack, children[1].clone())?;
+                Self::check_semantics(stack, symbol_table, children[0].clone())?;
+                Self::check_semantics(stack, symbol_table, children[1].clone())?;
             }
             SyntaxTreeNode::Identifier(id) => {
                 for elem in stack {
@@ -281,27 +431,38 @@ impl Source {
                         return Ok(());
                     }
                 }
-
+                println!("{id}");
                 return Err(());
             }
             SyntaxTreeNode::FnCall => {
-                Self::check_semantics(stack, children[1].clone())?;
+                Self::check_semantics(stack, symbol_table, children[1].clone())?;
 
                 let id = match children[0].clone().node {
                     SyntaxTreeNode::Identifier(id) => id,
                     _ => "".to_string(),
                 };
+
+                let mut node_id = String::new();
                 for elem in stack {
-                    if elem.clone() == ScopeElem::Func(id.clone()) {
-                        return Ok(());
+                    match elem {
+                        ScopeElem::NodeScope(n) => {
+                            node_id = n.clone();
+                            break;
+                        }
+                        _ => {}
                     }
                 }
 
-                return Err(());
+                let map = symbol_table[&node_id].clone();
+                if map.contains_key(&id) {
+                    return Ok(());
+                } else {
+                    return Err(());
+                }
             }
             _ => {
                 for child in children {
-                    Self::check_semantics(stack, child)?;
+                    Self::check_semantics(stack, symbol_table, child)?;
                 }
             }
         }
@@ -309,13 +470,11 @@ impl Source {
         Ok(())
     }
 
-    fn generate_symbol_table(
-        table: &mut HashMap<SymbolTableKey, SymbolTableEntry>,
+    fn check_types(
+        symbol_table: &HashMap<String, HashMap<String, TLElement>>,
         ast: AbstractSyntaxTree,
-        scope: String,
-    ) {
+    ) -> Result<(), ()> {
         let children = ast.children.clone();
-
         match ast.node {
             SyntaxTreeNode::DeclareNode => {
                 let header = children[0].clone();
@@ -323,167 +482,63 @@ impl Source {
                     SyntaxTreeNode::Identifier(id) => id,
                     _ => "".to_string(),
                 };
-                let scope = format!("{id}");
-                Self::generate_symbol_table(table, children[1].clone(), scope);
-            }
-            SyntaxTreeNode::DeclareConst => {
-                let id = match children[0].clone().node {
-                    SyntaxTreeNode::Identifier(id) => id,
-                    _ => "".to_string(),
-                };
-                let t = match children[1].clone().node {
-                    SyntaxTreeNode::Identifier(id) => id,
-                    _ => "".to_string(),
-                };
-                table.insert(
-                    SymbolTableKey::ID(format!("{scope}::{id}")),
-                    SymbolTableEntry::Const(t),
-                );
 
-                Self::generate_symbol_table(table, children[2].clone(), scope);
+                Self::check_types_node(symbol_table, children[1].clone(), id)?;
             }
-            SyntaxTreeNode::DeclareVar => {
-                let id = match children[0].clone().node {
-                    SyntaxTreeNode::Identifier(id) => id,
-                    _ => "".to_string(),
-                };
-                let t = match children[1].clone().node {
-                    SyntaxTreeNode::Identifier(id) => id,
-                    _ => "".to_string(),
-                };
-                table.insert(
-                    SymbolTableKey::ID(format!("{scope}::{id}")),
-                    SymbolTableEntry::Variable(t),
-                );
+            _ => {
+                for child in children {
+                    Self::check_types(symbol_table, child)?;
+                }
+            }
+        }
 
-                Self::generate_symbol_table(table, children[2].clone(), scope);
-            }
+        Ok(())
+    }
+
+    fn check_types_node(
+        symbol_table: &HashMap<String, HashMap<String, TLElement>>,
+        ast: AbstractSyntaxTree,
+        node_id: String,
+    ) -> Result<(), ()> {
+        let children = ast.children.clone();
+        match ast.node {
             SyntaxTreeNode::DeclareFunc => {
                 let id = match children[0].clone().node {
                     SyntaxTreeNode::Identifier(id) => id,
                     _ => "".to_string(),
                 };
-                let params = Self::get_params(children[1].clone());
-                params.iter().for_each(|(p_id, p_t)| {
-                    table.insert(
-                        SymbolTableKey::ID(format!("{scope}::{id}::{p_id}")),
-                        SymbolTableEntry::Variable(p_t.clone()),
-                    );
-                });
-                let t = match children[2].clone().node {
-                    SyntaxTreeNode::ReturnType => match children[2].children[0].clone().node {
-                        SyntaxTreeNode::Identifier(id) => id,
-                        _ => "".to_string(),
-                    },
-                    _ => "".to_string(),
-                };
-                let param_types = params.iter().map(|(_, p_t)| p_t.clone()).collect();
-                table.insert(
-                    SymbolTableKey::ID(format!("{scope}::{id}")),
-                    SymbolTableEntry::Function(t, param_types),
-                );
 
-                let scope = format!("{scope}::{id}");
-
-                Self::generate_symbol_table(table, children[3].clone(), scope);
-            }
-            SyntaxTreeNode::Integer(num) => {
-                table.insert(
-                    SymbolTableKey::Int(format!("{num}")),
-                    SymbolTableEntry::Const("int".to_string()),
-                );
-            }
-            SyntaxTreeNode::Float(num) => {
-                table.insert(
-                    SymbolTableKey::Float(format!("{num}")),
-                    SymbolTableEntry::Const("float".to_string()),
-                );
+                Self::check_types_func(symbol_table, children[3].clone(), node_id, id)?;
             }
             _ => {
                 for child in children {
-                    Self::generate_symbol_table(table, child, scope.clone());
+                    Self::check_types_node(symbol_table, child, node_id.clone())?;
                 }
             }
         }
+        Ok(())
     }
 
-    fn get_params(ast: AbstractSyntaxTree) -> Vec<(String, String)> {
-        if ast.node == SyntaxTreeNode::Null {
-            vec![]
-        } else {
-            let param = ast.children[0].clone();
-            let param_id = match param.children[0].clone().node {
-                SyntaxTreeNode::Identifier(id) => id,
-                _ => "".to_string(),
-            };
-            let param_type = match param.children[1].clone().node {
-                SyntaxTreeNode::Identifier(id) => id,
-                _ => "".to_string(),
-            };
-
-            let mut ret = vec![(param_id, param_type)];
-            let mut rest = Self::get_params(ast.children[1].clone());
-            ret.append(&mut rest);
-
-            ret
-        }
-    }
-
-    fn check_types(
-        table: &HashMap<SymbolTableKey, SymbolTableEntry>,
+    fn check_types_func(
+        symbol_table: &HashMap<String, HashMap<String, TLElement>>,
         ast: AbstractSyntaxTree,
-        scope: String,
+        node_id: String,
+        fn_id: String,
     ) -> Result<(), ()> {
         let children = ast.children.clone();
 
         match ast.node {
-            SyntaxTreeNode::DeclareNode => {
-                let header = children[0].clone();
-                let id = match header.children[0].clone().node {
+            SyntaxTreeNode::DeclareVar | SyntaxTreeNode::DeclareConst => {
+                let l_value = match children[1].clone().node {
                     SyntaxTreeNode::Identifier(id) => id,
                     _ => "".to_string(),
                 };
-                let scope = format!("{id}");
-                Self::check_types(table, children[1].clone(), scope)?;
-            }
-            SyntaxTreeNode::DeclareFunc => {
-                let id = match children[0].clone().node {
-                    SyntaxTreeNode::Identifier(id) => id,
-                    _ => "".to_string(),
-                };
-                let scope = format!("{scope}::{id}");
-                Self::check_types(table, children[3].clone(), scope)?;
-            }
-            SyntaxTreeNode::DeclareConst => {
-                let id = match children[0].clone().node {
-                    SyntaxTreeNode::Identifier(id) => id,
-                    _ => "".to_string(),
-                };
-                match table.get(&SymbolTableKey::ID(format!("{scope}::{id}"))) {
-                    Some(SymbolTableEntry::Const(l_value)) => {
-                        if l_value.clone()
-                            != Self::get_type(table, children[2].clone(), scope.clone())?
-                        {
-                            return Err(());
-                        }
-                    }
-                    _ => {}
-                }
-            }
-            SyntaxTreeNode::DeclareVar => {
-                let id = match children[0].clone().node {
-                    SyntaxTreeNode::Identifier(id) => id,
-                    _ => "".to_string(),
-                };
-                match table.get(&SymbolTableKey::ID(format!("{scope}::{id}"))) {
-                    Some(SymbolTableEntry::Variable(l_value)) => {
-                        if l_value.clone()
-                            != Self::get_type(table, children[2].clone(), scope.clone())?
-                        {
-                            return Err(());
-                        }
-                    }
-                    _ => {}
+
+                let r_value = Self::get_type(symbol_table, children[2].clone(), node_id, fn_id)?;
+
+                if l_value != r_value {
+                    println!("{l_value} {r_value}");
+                    return Err(());
                 }
             }
             SyntaxTreeNode::Assign => {
@@ -491,15 +546,20 @@ impl Source {
                     SyntaxTreeNode::Identifier(id) => id,
                     _ => "".to_string(),
                 };
-                match table.get(&SymbolTableKey::ID(format!("{scope}::{id}"))) {
-                    Some(SymbolTableEntry::Variable(l_value)) => {
-                        if l_value.clone()
-                            != Self::get_type(table, children[1].clone(), scope.clone())?
-                        {
-                            return Err(());
-                        }
-                    }
-                    _ => {}
+                println!("{id}");
+
+                let l_value = Self::get_type(
+                    symbol_table,
+                    children[0].clone(),
+                    node_id.clone(),
+                    fn_id.clone(),
+                )?;
+
+                let r_value = Self::get_type(symbol_table, children[1].clone(), node_id, fn_id)?;
+
+                if l_value != r_value {
+                    println!("{l_value} {r_value}");
+                    return Err(());
                 }
             }
             SyntaxTreeNode::AndOp
@@ -510,8 +570,18 @@ impl Source {
             | SyntaxTreeNode::CompGeq
             | SyntaxTreeNode::CompLess
             | SyntaxTreeNode::CompGreater => {
-                let l_value = Self::get_type(table, children[0].clone(), scope.clone())?;
-                let r_value = Self::get_type(table, children[1].clone(), scope.clone())?;
+                let l_value = Self::get_type(
+                    symbol_table,
+                    children[0].clone(),
+                    node_id.clone(),
+                    fn_id.clone(),
+                )?;
+                let r_value = Self::get_type(
+                    symbol_table,
+                    children[1].clone(),
+                    node_id.clone(),
+                    fn_id.clone(),
+                )?;
 
                 if l_value != r_value {
                     return Err(());
@@ -519,7 +589,7 @@ impl Source {
             }
             _ => {
                 for child in children {
-                    Self::check_types(table, child, scope.clone())?;
+                    Self::check_types_func(symbol_table, child, node_id.clone(), fn_id.clone())?;
                 }
             }
         }
@@ -528,17 +598,29 @@ impl Source {
     }
 
     fn get_type(
-        table: &HashMap<SymbolTableKey, SymbolTableEntry>,
+        symbol_table: &HashMap<String, HashMap<String, TLElement>>,
         ast: AbstractSyntaxTree,
-        scope: String,
+        node_id: String,
+        fn_id: String,
     ) -> Result<String, ()> {
+        let children = ast.children.clone();
         match ast.node {
             SyntaxTreeNode::AddOp
             | SyntaxTreeNode::SubOp
             | SyntaxTreeNode::DivOp
             | SyntaxTreeNode::MulOp => {
-                let l_value = Self::get_type(table, ast.children[0].clone(), scope.clone());
-                let r_value = Self::get_type(table, ast.children[1].clone(), scope.clone());
+                let l_value = Self::get_type(
+                    symbol_table,
+                    children[0].clone(),
+                    node_id.clone(),
+                    fn_id.clone(),
+                );
+                let r_value = Self::get_type(
+                    symbol_table,
+                    children[1].clone(),
+                    node_id.clone(),
+                    fn_id.clone(),
+                );
 
                 if l_value == r_value {
                     l_value
@@ -546,172 +628,118 @@ impl Source {
                     Err(())
                 }
             }
-            SyntaxTreeNode::Integer(_) => Ok(String::from("int")),
-            SyntaxTreeNode::Float(_) => Ok(String::from("float")),
             SyntaxTreeNode::Identifier(id) => {
-                match table
-                    .get(&SymbolTableKey::ID(format!("{scope}::{id}")))
-                    .unwrap()
-                {
-                    SymbolTableEntry::Variable(t) => Ok(t.clone()),
-                    SymbolTableEntry::Const(t) => Ok(t.clone()),
-                    _ => Ok("".to_string()),
+                let map = symbol_table[&node_id].clone();
+                let e = map[&fn_id].clone();
+
+                match e {
+                    TLElement::Function(_, _, set) => {
+                        for (var_name, var_type) in set {
+                            if var_name == id {
+                                return Ok(var_type);
+                            }
+                        }
+                        Err(())
+                    }
+                    _ => Err(()),
                 }
             }
+            SyntaxTreeNode::Integer(_) => Ok(String::from("int")),
+            SyntaxTreeNode::Float(_) => Ok(String::from("float")),
             SyntaxTreeNode::FnCall => {
-                let params = Self::get_inputs(table, ast.children[1].clone(), scope.clone());
+                let params = Self::get_inputs(
+                    symbol_table,
+                    children[1].clone(),
+                    node_id.clone(),
+                    fn_id.clone(),
+                );
 
-                match ast.children[0].clone().node {
+                match children[0].clone().node {
                     SyntaxTreeNode::Identifier(id) => {
-                        let idx = scope.find("::").unwrap();
-                        let fn_id = format!("{}::{id}", scope.get(0..idx).unwrap());
-                        match table.get(&SymbolTableKey::ID(fn_id)).unwrap() {
-                            SymbolTableEntry::Function(t, p) => {
-                                if params != p.clone() {
-                                    return Err(());
-                                }
-                                Ok(t.clone())
+                        let map = symbol_table[&node_id].clone();
+                        let e = match map.get(&id) {
+                            Some(elem) => elem,
+                            None => {
+                                return Err(());
                             }
-                            _ => Ok("".to_string()),
+                        };
+
+                        match e {
+                            TLElement::Function(ret, p, _) => {
+                                if p.clone() == params {
+                                    Ok(ret.clone())
+                                } else {
+                                    Err(())
+                                }
+                            }
+                            _ => Err(()),
                         }
                     }
                     _ => Ok("".to_string()),
                 }
             }
-            _ => Ok("".to_string()),
+            _ => Ok(String::new()),
         }
     }
 
     fn get_inputs(
-        table: &HashMap<SymbolTableKey, SymbolTableEntry>,
+        symbol_table: &HashMap<String, HashMap<String, TLElement>>,
         ast: AbstractSyntaxTree,
-        scope: String,
+        node_id: String,
+        fn_id: String,
     ) -> Vec<String> {
         if ast.node == SyntaxTreeNode::Null {
             vec![]
         } else {
             let mut ret = match ast.children[0].clone().node {
-                SyntaxTreeNode::Integer(num) => {
-                    let id_type = match table.get(&SymbolTableKey::Int(format!("{num}"))).unwrap() {
-                        SymbolTableEntry::Const(t) => t.clone(),
-                        _ => "".to_string(),
-                    };
-                    vec![id_type]
+                SyntaxTreeNode::Integer(_) => {
+                    vec![String::from("int")]
                 }
-                SyntaxTreeNode::Float(num) => {
-                    let id_type = match table.get(&SymbolTableKey::Float(format!("{num}"))).unwrap()
-                    {
-                        SymbolTableEntry::Const(t) => t.clone(),
-                        _ => "".to_string(),
-                    };
-                    vec![id_type]
+                SyntaxTreeNode::Float(_) => {
+                    vec![String::from("float")]
                 }
                 SyntaxTreeNode::Identifier(id) => {
-                    let id_type = match table
-                        .get(&SymbolTableKey::ID(format!("{scope}::{id}")))
-                        .unwrap()
-                    {
-                        SymbolTableEntry::Const(t) => t.clone(),
-                        SymbolTableEntry::Variable(t) => t.clone(),
-                        _ => "".to_string(),
-                    };
-                    vec![id_type]
+                    let map = symbol_table[&node_id].clone();
+                    let e = map[&fn_id].clone();
+
+                    match e {
+                        TLElement::Function(_, _, set) => {
+                            for (var_name, var_type) in set {
+                                if var_name == id {
+                                    return vec![var_type];
+                                }
+                            }
+                            vec![]
+                        }
+                        _ => vec![],
+                    }
                 }
                 SyntaxTreeNode::AddOp
                 | SyntaxTreeNode::SubOp
                 | SyntaxTreeNode::MulOp
                 | SyntaxTreeNode::DivOp => {
-                    let t = Self::get_type(table, ast.children[0].clone(), scope.clone())
-                        .expect("failed type check");
+                    let t = Self::get_type(
+                        symbol_table,
+                        ast.children[0].clone(),
+                        node_id.clone(),
+                        fn_id.clone(),
+                    )
+                    .expect("failed type check");
                     vec![t]
                 }
                 _ => vec![],
             };
 
-            let mut rest = Self::get_inputs(table, ast.children[1].clone(), scope.clone());
+            let mut rest = Self::get_inputs(
+                symbol_table,
+                ast.children[1].clone(),
+                node_id.clone(),
+                fn_id.clone(),
+            );
             ret.append(&mut rest);
 
             ret
         }
-    }
-
-    fn check_return(
-        table: &HashMap<SymbolTableKey, SymbolTableEntry>,
-        ast: AbstractSyntaxTree,
-        scope: String,
-    ) -> Result<(), ()> {
-        let children = ast.children.clone();
-        match ast.node {
-            SyntaxTreeNode::DeclareNode => {
-                let header = children[0].clone();
-                let id = match header.children[0].clone().node {
-                    SyntaxTreeNode::Identifier(id) => id,
-                    _ => "".to_string(),
-                };
-                let scope = format!("{id}");
-                Self::check_return(table, children[1].clone(), scope)?;
-            }
-            SyntaxTreeNode::DeclareFunc => match children[2].children[0].clone().node {
-                SyntaxTreeNode::Void | SyntaxTreeNode::NoReturn => {
-                    Self::check_return_helper_1(children[3].clone())?;
-                }
-                SyntaxTreeNode::Identifier(id) => {
-                    let fn_id = match children[0].clone().node {
-                        SyntaxTreeNode::Identifier(id) => id,
-                        _ => "".to_string(),
-                    };
-                    let scope = format!("{scope}::{fn_id}");
-                    Self::check_return_helper_2(table, children[3].clone(), &id, scope.clone())?;
-                }
-                _ => {
-                    return Err(());
-                }
-            },
-            _ => {
-                for child in children {
-                    Self::check_return(table, child, scope.clone())?;
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    fn check_return_helper_1(ast: AbstractSyntaxTree) -> Result<(), ()> {
-        match ast.node {
-            SyntaxTreeNode::ReturnValue => {
-                return Err(());
-            }
-            _ => {
-                for child in ast.children.clone() {
-                    Self::check_return_helper_1(child)?;
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    fn check_return_helper_2(
-        table: &HashMap<SymbolTableKey, SymbolTableEntry>,
-        ast: AbstractSyntaxTree,
-        id: &String,
-        scope: String,
-    ) -> Result<(), ()> {
-        match ast.node {
-            SyntaxTreeNode::ReturnValue => {
-                let return_type = Self::get_type(table, ast.children[0].clone(), scope.clone())?;
-                if id.clone() != return_type {
-                    return Err(());
-                }
-            }
-            _ => {
-                for child in ast.children.clone() {
-                    Self::check_return_helper_2(table, child, id, scope.clone())?;
-                }
-            }
-        }
-        Ok(())
     }
 
     pub fn compile(&self) -> Result<(), std::io::Error> {
