@@ -737,6 +737,7 @@ impl Source {
             }
 
             for fn_id in self.symbol_table[node_id].keys() {
+                println!("{fn_id}");
                 if fn_id == "main" {
                     continue;
                 }
@@ -950,7 +951,13 @@ impl Source {
                     _ => "".to_string(),
                 };
 
-                bytes.push(0x13);
+                bytes.push(0x10);
+                bytes.push(0x0);
+                bytes.push(0x0);
+                bytes.push(0x0);
+                bytes.push(0x0);
+
+                let ret_loc = bytes.len() - 4;
 
                 Self::generate_inputs_bytecode(
                     bytes,
@@ -968,7 +975,13 @@ impl Source {
                 bytes.push(0x00);
                 bytes.push(0x00);
 
-                calls.push((bytes.len() - 1, id.clone()));
+                calls.push((bytes.len() - 4, id.clone()));
+
+                let ret_addr = bytes.len() as u32;
+                bytes[ret_loc] = ((ret_addr & 0xFF000000) >> 24) as u8;
+                bytes[ret_loc + 1] = ((ret_addr & 0x00FF0000) >> 16) as u8;
+                bytes[ret_loc + 2] = ((ret_addr & 0x0000FF00) >> 8) as u8;
+                bytes[ret_loc + 3] = (ret_addr & 0x000000FF) as u8;
             }
             SyntaxTreeNode::WhileLoop => {
                 let return_to = bytes.len() as u32;
@@ -1128,7 +1141,13 @@ impl Source {
                     _ => "".to_string(),
                 };
 
-                bytes.push(0x13);
+                bytes.push(0x10);
+                bytes.push(0x0);
+                bytes.push(0x0);
+                bytes.push(0x0);
+                bytes.push(0x0);
+
+                let ret_loc = bytes.len() - 4;
 
                 Self::generate_inputs_bytecode(
                     bytes,
@@ -1146,7 +1165,13 @@ impl Source {
                 bytes.push(0x00);
                 bytes.push(0x00);
 
-                calls.push((bytes.len() - 1, id.clone()));
+                calls.push((bytes.len() - 4, id.clone()));
+
+                let ret_addr = bytes.len() as u32;
+                bytes[ret_loc] = ((ret_addr & 0xFF000000) >> 24) as u8;
+                bytes[ret_loc + 1] = ((ret_addr & 0x00FF0000) >> 16) as u8;
+                bytes[ret_loc + 2] = ((ret_addr & 0x0000FF00) >> 8) as u8;
+                bytes[ret_loc + 3] = (ret_addr & 0x000000FF) as u8;
             }
             SyntaxTreeNode::AndOp => {
                 Self::generate_expr_bytecode(

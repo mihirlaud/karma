@@ -4,7 +4,7 @@
 # pushi     -- 0x10 operand
 # pushf     -- 0x11 operand
 # pop       -- 0x12 
-# pushsp    -- 0x13
+# pushsp    -- 0x13 operand
 
 # memory management
 # decli     -- 0x20 operand
