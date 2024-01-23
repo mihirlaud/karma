@@ -1,6 +1,6 @@
 node HelloKarma {
-    fn main() -> float {
-        var a: float = 1.5;
+    fn main() -> int {
+        var a: int = -1;
 
         return a;
     }

@@ -725,7 +725,6 @@ impl Source {
                     }
                     Self::generate_function_bytecode(
                         &mut bytes,
-                        "main".to_string(),
                         &functions,
                         &var_set,
                         &variable_addresses,
@@ -787,7 +786,6 @@ impl Source {
                         }
                         Self::generate_function_bytecode(
                             &mut bytes,
-                            fn_id.clone(),
                             &functions,
                             &var_set,
                             &variable_addresses,
@@ -831,7 +829,6 @@ impl Source {
 
     fn generate_function_bytecode(
         bytes: &mut Vec<u8>,
-        fn_id: String,
         functions: &Vec<(String, String, Vec<(String, String)>)>,
         var_set: &HashSet<(String, String)>,
         variable_addresses: &HashMap<String, (String, u32)>,
@@ -843,7 +840,6 @@ impl Source {
             SyntaxTreeNode::DeclareConst => {
                 Self::generate_expr_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -877,7 +873,6 @@ impl Source {
             SyntaxTreeNode::DeclareVar => {
                 Self::generate_expr_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -911,7 +906,6 @@ impl Source {
             SyntaxTreeNode::Assign => {
                 Self::generate_expr_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -958,7 +952,6 @@ impl Source {
 
                 Self::generate_inputs_bytecode(
                     bytes,
-                    fn_id,
                     functions,
                     var_set,
                     variable_addresses,
@@ -985,7 +978,6 @@ impl Source {
 
                 Self::generate_expr_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -1003,7 +995,6 @@ impl Source {
 
                 Self::generate_function_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -1027,7 +1018,6 @@ impl Source {
             SyntaxTreeNode::IfStmt => {
                 Self::generate_expr_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -1045,7 +1035,6 @@ impl Source {
 
                 Self::generate_function_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -1069,7 +1058,6 @@ impl Source {
 
                 Self::generate_function_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -1086,7 +1074,6 @@ impl Source {
             SyntaxTreeNode::ReturnValue => {
                 Self::generate_expr_bytecode(
                     bytes,
-                    fn_id,
                     functions,
                     var_set,
                     variable_addresses,
@@ -1099,7 +1086,6 @@ impl Source {
                 for child in children {
                     Self::generate_function_bytecode(
                         bytes,
-                        fn_id.clone(),
                         functions,
                         var_set,
                         variable_addresses,
@@ -1113,7 +1099,6 @@ impl Source {
 
     fn generate_expr_bytecode(
         bytes: &mut Vec<u8>,
-        fn_id: String,
         functions: &Vec<(String, String, Vec<(String, String)>)>,
         var_set: &HashSet<(String, String)>,
         variable_addresses: &HashMap<String, (String, u32)>,
@@ -1138,7 +1123,6 @@ impl Source {
 
                 Self::generate_inputs_bytecode(
                     bytes,
-                    fn_id,
                     functions,
                     var_set,
                     variable_addresses,
@@ -1163,7 +1147,6 @@ impl Source {
             SyntaxTreeNode::AndOp => {
                 Self::generate_expr_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -1172,7 +1155,6 @@ impl Source {
                 );
                 Self::generate_expr_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -1184,7 +1166,6 @@ impl Source {
             SyntaxTreeNode::OrOp => {
                 Self::generate_expr_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -1193,7 +1174,6 @@ impl Source {
                 );
                 Self::generate_expr_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -1205,7 +1185,6 @@ impl Source {
             SyntaxTreeNode::CompEq => {
                 Self::generate_expr_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -1214,7 +1193,6 @@ impl Source {
                 );
                 Self::generate_expr_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -1226,7 +1204,6 @@ impl Source {
             SyntaxTreeNode::CompNeq => {
                 Self::generate_expr_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -1235,7 +1212,6 @@ impl Source {
                 );
                 Self::generate_expr_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -1247,7 +1223,6 @@ impl Source {
             SyntaxTreeNode::CompLess => {
                 Self::generate_expr_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -1256,7 +1231,6 @@ impl Source {
                 );
                 Self::generate_expr_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -1268,7 +1242,6 @@ impl Source {
             SyntaxTreeNode::CompGreater => {
                 Self::generate_expr_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -1277,7 +1250,6 @@ impl Source {
                 );
                 Self::generate_expr_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -1289,7 +1261,6 @@ impl Source {
             SyntaxTreeNode::CompLeq => {
                 Self::generate_expr_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -1298,7 +1269,6 @@ impl Source {
                 );
                 Self::generate_expr_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -1310,7 +1280,6 @@ impl Source {
             SyntaxTreeNode::CompGeq => {
                 Self::generate_expr_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -1319,7 +1288,6 @@ impl Source {
                 );
                 Self::generate_expr_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -1331,7 +1299,6 @@ impl Source {
             SyntaxTreeNode::AddOp => {
                 Self::generate_expr_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -1340,7 +1307,6 @@ impl Source {
                 );
                 Self::generate_expr_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -1360,7 +1326,6 @@ impl Source {
             SyntaxTreeNode::SubOp => {
                 Self::generate_expr_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -1369,7 +1334,6 @@ impl Source {
                 );
                 Self::generate_expr_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -1389,7 +1353,6 @@ impl Source {
             SyntaxTreeNode::MulOp => {
                 Self::generate_expr_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -1398,7 +1361,6 @@ impl Source {
                 );
                 Self::generate_expr_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -1418,7 +1380,6 @@ impl Source {
             SyntaxTreeNode::DivOp => {
                 Self::generate_expr_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -1427,7 +1388,6 @@ impl Source {
                 );
                 Self::generate_expr_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -1447,15 +1407,12 @@ impl Source {
             SyntaxTreeNode::Integer(num) => {
                 bytes.push(0x10);
 
-                let b1 = (0xFF & (num as u32)) as u8;
-                let b2 = (0xFF & ((num >> 8) as u32)) as u8;
-                let b3 = (0xFF & ((num >> 16) as u32)) as u8;
-                let b4 = (0xFF & ((num >> 24) as u32)) as u8;
+                let b = num.to_be_bytes();
 
-                bytes.push(b4);
-                bytes.push(b3);
-                bytes.push(b2);
-                bytes.push(b1);
+                bytes.push(b[0]);
+                bytes.push(b[1]);
+                bytes.push(b[2]);
+                bytes.push(b[3]);
             }
             SyntaxTreeNode::Float(num) => {
                 bytes.push(0x11);
@@ -1490,7 +1447,6 @@ impl Source {
                 for child in children {
                     Self::generate_expr_bytecode(
                         bytes,
-                        fn_id.clone(),
                         functions,
                         var_set,
                         variable_addresses,
@@ -1504,7 +1460,6 @@ impl Source {
 
     fn generate_inputs_bytecode(
         bytes: &mut Vec<u8>,
-        fn_id: String,
         functions: &Vec<(String, String, Vec<(String, String)>)>,
         var_set: &HashSet<(String, String)>,
         variable_addresses: &HashMap<String, (String, u32)>,
@@ -1514,9 +1469,8 @@ impl Source {
         let children = ast.children.clone();
         match ast.node {
             SyntaxTreeNode::InputList => {
-                Self::generate_inputs_bytecode(
+                Self::generate_expr_bytecode(
                     bytes,
-                    fn_id.clone(),
                     functions,
                     var_set,
                     variable_addresses,
@@ -1525,7 +1479,6 @@ impl Source {
                 );
                 Self::generate_inputs_bytecode(
                     bytes,
-                    fn_id,
                     functions,
                     var_set,
                     variable_addresses,
@@ -1533,56 +1486,10 @@ impl Source {
                     children[0].clone(),
                 );
             }
-            SyntaxTreeNode::Identifier(id) => {
-                let (t, addr) = variable_addresses[&id].clone();
-
-                if t == "int" {
-                    bytes.push(0x22);
-
-                    bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                    bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                    bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                    bytes.push((addr & 0x000000FF) as u8);
-                } else if t == "float" {
-                    bytes.push(0x23);
-
-                    bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                    bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                    bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                    bytes.push((addr & 0x000000FF) as u8);
-                }
-            }
-            SyntaxTreeNode::Integer(num) => {
-                bytes.push(0x10);
-
-                let b1 = (0xFF & (num as u32)) as u8;
-                let b2 = (0xFF & ((num >> 8) as u32)) as u8;
-                let b3 = (0xFF & ((num >> 16) as u32)) as u8;
-                let b4 = (0xFF & ((num >> 24) as u32)) as u8;
-
-                bytes.push(b4);
-                bytes.push(b3);
-                bytes.push(b2);
-                bytes.push(b1);
-            }
-            SyntaxTreeNode::Float(num) => {
-                bytes.push(0x11);
-
-                let b1 = (0xFF & (num as u32)) as u8;
-                let b2 = (0xFF & (num as u32 >> 8)) as u8;
-                let b3 = (0xFF & (num as u32 >> 16)) as u8;
-                let b4 = (0xFF & (num as u32 >> 24)) as u8;
-
-                bytes.push(b4);
-                bytes.push(b3);
-                bytes.push(b2);
-                bytes.push(b1);
-            }
             _ => {
                 for child in children {
                     Self::generate_inputs_bytecode(
                         bytes,
-                        fn_id.clone(),
                         functions,
                         var_set,
                         variable_addresses,

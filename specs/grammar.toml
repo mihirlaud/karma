@@ -151,7 +151,7 @@ follow = ["var", "const", "IDENTIFIER", "while", "if", "}"]
 prods = [
     ["term", "expression1"]
 ]
-first = ["(", "IDENTIFIER", "NUMBER"]
+first = ["(", "IDENTIFIER", "-", "INTEGER", "FLOAT"]
 follow = [")", ";", "==", "!=", "<", ">", "<=", ">=", "&&", "||", "{"]
 
 [expression1]
@@ -167,7 +167,7 @@ follow = [")", ";", "==", "!=", "<", ">", "<=", ">=", "&&", "||", "{"]
 prods = [
     ["factor", "term1"]
 ]
-first = ["(", "IDENTIFIER", "NUMBER"]
+first = ["(", "IDENTIFIER", "-", "INTEGER", "FLOAT"]
 follow = ["+", "-", ")", ";", "==", "!=", "<", ">", "<=", ">=", "&&", "||", "{"]
 
 [term1]
@@ -183,9 +183,9 @@ follow = ["+", "-", ")", ";", "==", "!=", "<", ">", "<=", ">=", "&&", "||", "{"]
 prods = [
     ["(", "expression", ")"],
     ["id", "id_or_fn"],
-    ["NUMBER"]
+    ["number"]
 ]
-first = ["(", "IDENTIFIER", "NUMBER"]
+first = ["(", "IDENTIFIER", "-", "INTEGER", "FLOAT"]
 follow = ["*", "/", "+", "-", ")", ";", "==", "!=", "<", ">", "<=", ">=", "&&", "||", "{"]
 
 [id_or_fn]
@@ -208,7 +208,7 @@ prods = [
     ["expression", "input_rest"],
     [""]
 ]
-first = ["(", "IDENTIFIER", "NUMBER", ""]
+first = ["(", "IDENTIFIER", "-", "INTEGER", "FLOAT", ""]
 follow = [")"]
 
 [input_rest]
@@ -223,7 +223,7 @@ follow = [")"]
 prods = [
     ["bool_term", "conditional1"]
 ]
-first = ["(", "IDENTIFIER", "NUMBER"]
+first = ["(", "IDENTIFIER", "-", "INTEGER", "FLOAT"]
 follow = ["{"]
 
 [conditional1]
@@ -239,7 +239,7 @@ prods = [
     ["bool_expr", "bool_term1"]
 ]
 
-first = ["(", "IDENTIFIER", "NUMBER"]
+first = ["(", "IDENTIFIER", "-", "INTEGER", "FLOAT"]
 follow = ["{", "||"]
 
 [bool_term1]
@@ -254,7 +254,7 @@ follow = ["{", "||"]
 prods = [
     ["expression", "comparison", "expression"],
 ]
-first = ["(", "IDENTIFIER", "NUMBER"]
+first = ["(", "IDENTIFIER", "-", "INTEGER", "FLOAT"]
 follow = ["&&", "||", "{"]
 
 [comparison]
@@ -267,4 +267,18 @@ prods = [
     [">="],
 ]
 first = ["==", "!=", "<", ">", "<=", ">="]
-follow = ["(", "IDENTIFIER", "NUMBER"]
+follow = ["(", "IDENTIFIER", "-", "INTEGER", "FLOAT"]
+
+[number]
+prods = [
+    ["positive"],
+    ["-", "positive"],
+]
+first = ["-", "INTEGER", "FLOAT"]
+
+[positive]
+prods = [
+    ["INTEGER"],
+    ["FLOAT"]
+]
+first = ["INTEGER", "FLOAT"]

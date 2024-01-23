@@ -171,11 +171,13 @@ pub enum GrammarSymbol {
     NodeList,
     NodeNT,
     NodeRest,
+    Number,
     OptElse,
     OptIDList,
     Param,
     ParamList,
     ParamRest,
+    Positive,
     Program,
     ReturnType,
     Stmt,
@@ -269,6 +271,7 @@ impl Parser {
                             },
                             GrammarSymbol::BoolExpr => match token.clone() {
                                 Some(Token::ID(_))
+                                | Some(Token::Sub)
                                 | Some(Token::Integer(_))
                                 | Some(Token::Float(_))
                                 | Some(Token::LeftParen) => {
@@ -284,6 +287,7 @@ impl Parser {
                             },
                             GrammarSymbol::BoolTerm => match token.clone() {
                                 Some(Token::ID(_))
+                                | Some(Token::Sub)
                                 | Some(Token::LeftParen)
                                 | Some(Token::Integer(_))
                                 | Some(Token::Float(_)) => {
@@ -324,6 +328,7 @@ impl Parser {
                             GrammarSymbol::Conditional => match token.clone() {
                                 Some(Token::ID(_))
                                 | Some(Token::LeftParen)
+                                | Some(Token::Sub)
                                 | Some(Token::Integer(_))
                                 | Some(Token::Float(_)) => {
                                     vec![GrammarSymbol::BoolTerm, GrammarSymbol::Conditional1]
@@ -349,6 +354,7 @@ impl Parser {
                             },
                             GrammarSymbol::Expression => match token.clone() {
                                 Some(Token::ID(_))
+                                | Some(Token::Sub)
                                 | Some(Token::Integer(_))
                                 | Some(Token::Float(_))
                                 | Some(Token::LeftParen) => {
@@ -401,11 +407,10 @@ impl Parser {
                                 Some(Token::ID(_)) => {
                                     vec![GrammarSymbol::ID, GrammarSymbol::IDOrFn]
                                 }
-                                Some(Token::Integer(num)) => {
-                                    vec![GrammarSymbol::Terminal(Token::Integer(num))]
-                                }
-                                Some(Token::Float(num)) => {
-                                    vec![GrammarSymbol::Terminal(Token::Float(num))]
+                                Some(Token::Sub)
+                                | Some(Token::Integer(_))
+                                | Some(Token::Float(_)) => {
+                                    vec![GrammarSymbol::Number]
                                 }
                                 _ => {
                                     return Err("syntax error".to_string());
@@ -468,6 +473,7 @@ impl Parser {
                             },
                             GrammarSymbol::InputList => match token.clone() {
                                 Some(Token::ID(_))
+                                | Some(Token::Sub)
                                 | Some(Token::Integer(_))
                                 | Some(Token::Float(_))
                                 | Some(Token::LeftParen) => {
@@ -544,6 +550,20 @@ impl Parser {
                                     return Err("syntax error".to_string());
                                 }
                             },
+                            GrammarSymbol::Number => match token.clone() {
+                                Some(Token::Sub) => {
+                                    vec![
+                                        GrammarSymbol::Terminal(Token::Sub),
+                                        GrammarSymbol::Positive,
+                                    ]
+                                }
+                                Some(Token::Integer(_)) | Some(Token::Float(_)) => {
+                                    vec![GrammarSymbol::Positive]
+                                }
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
                             GrammarSymbol::OptElse => match token.clone() {
                                 Some(Token::Else) => {
                                     vec![GrammarSymbol::Terminal(Token::Else), GrammarSymbol::Block]
@@ -595,6 +615,17 @@ impl Parser {
                                     GrammarSymbol::ParamList,
                                 ],
                                 Some(Token::RightParen) => vec![],
+                                _ => {
+                                    return Err("syntax error".to_string());
+                                }
+                            },
+                            GrammarSymbol::Positive => match token.clone() {
+                                Some(Token::Integer(num)) => {
+                                    vec![GrammarSymbol::Terminal(Token::Integer(num))]
+                                }
+                                Some(Token::Float(num)) => {
+                                    vec![GrammarSymbol::Terminal(Token::Float(num))]
+                                }
                                 _ => {
                                     return Err("syntax error".to_string());
                                 }
@@ -689,6 +720,7 @@ impl Parser {
                             },
                             GrammarSymbol::Term => match token.clone() {
                                 Some(Token::ID(_))
+                                | Some(Token::Sub)
                                 | Some(Token::Integer(_))
                                 | Some(Token::Float(_))
                                 | Some(Token::LeftParen) => {
@@ -1154,12 +1186,15 @@ impl Parser {
                 }
             },
             GrammarSymbol::Factor => match self.parse_tree.get_node(children[0]) {
-                GrammarSymbol::Terminal(Token::Integer(num)) => {
-                    tree.node = SyntaxTreeNode::Integer(num);
+                GrammarSymbol::Number => {
+                    tree = self.build_ast_from_parse_node(children[0]);
                 }
-                GrammarSymbol::Terminal(Token::Float(num)) => {
-                    tree.node = SyntaxTreeNode::Float(num);
-                }
+                // GrammarSymbol::Terminal(Token::Integer(num)) => {
+                //     tree.node = SyntaxTreeNode::Integer(num);
+                // }
+                // GrammarSymbol::Terminal(Token::Float(num)) => {
+                //     tree.node = SyntaxTreeNode::Float(num);
+                // }
                 GrammarSymbol::ID => {
                     let subtree = self.build_ast_from_parse_node(children[1]);
 
@@ -1178,6 +1213,29 @@ impl Parser {
                 }
                 GrammarSymbol::Terminal(Token::LeftParen) => {
                     tree = self.build_ast_from_parse_node(children[1]);
+                }
+                _ => {}
+            },
+            GrammarSymbol::Number => match self.parse_tree.get_node(children[0]) {
+                GrammarSymbol::Terminal(Token::Sub) => {
+                    let subtree = self.build_ast_from_parse_node(children[1]);
+                    tree.node = match subtree.node {
+                        SyntaxTreeNode::Integer(num) => SyntaxTreeNode::Integer(-1 * num),
+                        SyntaxTreeNode::Float(num) => SyntaxTreeNode::Float(-1.0 * num),
+                        _ => SyntaxTreeNode::Null,
+                    };
+                }
+                GrammarSymbol::Positive => {
+                    tree = self.build_ast_from_parse_node(children[0]);
+                }
+                _ => {}
+            },
+            GrammarSymbol::Positive => match self.parse_tree.get_node(children[0]) {
+                GrammarSymbol::Terminal(Token::Integer(num)) => {
+                    tree.node = SyntaxTreeNode::Integer(num);
+                }
+                GrammarSymbol::Terminal(Token::Float(num)) => {
+                    tree.node = SyntaxTreeNode::Float(num);
                 }
                 _ => {}
             },

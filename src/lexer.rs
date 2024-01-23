@@ -30,6 +30,7 @@ pub enum Token {
     ID(String),
     Integer(i32),
     Float(f32),
+    Character(char),
     StringLiteral(String),
     Node,
     Export,
@@ -83,6 +84,7 @@ impl std::fmt::Display for Token {
             Token::ID(name) => write!(f, "ID: {name}"),
             Token::Integer(int) => write!(f, "Integer: {int}"),
             Token::Float(float) => write!(f, "Float: {float}"),
+            Token::Character(c) => write!(f, "Char: {c}"),
             Token::StringLiteral(s) => write!(f, "String literal: {s}"),
             Token::Node => write!(f, "node"),
             Token::Export => write!(f, "export"),
@@ -210,14 +212,7 @@ impl Lexer {
                         return Some(Token::Comma);
                     }
 
-                    if c == '+'
-                        || c == '*'
-                        || c == '/'
-                        || c == '='
-                        || c == '!'
-                        || c == '<'
-                        || c == '>'
-                    {
+                    if c == '+' || c == '*' || c == '=' || c == '!' || c == '<' || c == '>' {
                         state = 1;
                     }
 
@@ -247,6 +242,10 @@ impl Lexer {
 
                     if c == '|' {
                         state = 9;
+                    }
+
+                    if c == '/' {
+                        state = 10;
                     }
                 }
                 1 => {
@@ -346,6 +345,28 @@ impl Lexer {
                         return Some(Token::BitwiseAnd);
                     }
                 }
+                10 => {
+                    if c == '=' {
+                        let attr = self.chars[self.curr..forward + 1]
+                            .into_iter()
+                            .collect::<String>();
+                        self.curr = forward + 1;
+                        return Some(SYMBOLS[attr.as_str()].clone());
+                    } else if c == '/' {
+                        state = 11;
+                    } else {
+                        let attr = String::from(self.chars[forward - 1]);
+                        self.curr = forward;
+                        return Some(SYMBOLS[attr.as_str()].clone());
+                    }
+                }
+                11 => {
+                    if c == '\n' {
+                        self.curr = forward + 1;
+                        state = 0;
+                    }
+                }
+
                 _ => {}
             }
 
