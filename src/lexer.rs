@@ -29,7 +29,7 @@ static SYMBOLS: phf::Map<&'static str, Token> = phf_map! {
 pub enum Token {
     ID(String),
     Integer(i32),
-    Float(f64),
+    Float(f32),
     StringLiteral(String),
     Node,
     Export,
@@ -314,7 +314,7 @@ impl Lexer {
                         let attr = self.chars[self.curr..forward]
                             .into_iter()
                             .collect::<String>();
-                        let val: f64 = attr.parse().expect("Failed to convert to float");
+                        let val: f32 = attr.parse().expect("Failed to convert to float");
                         self.curr = forward;
                         return Some(Token::Float(val));
                     }
@@ -377,7 +377,7 @@ impl Lexer {
                 let attr = self.chars[self.curr..self.chars.len()]
                     .into_iter()
                     .collect::<String>();
-                let val: f64 = attr.parse().expect("Failed to convert to float");
+                let val: f32 = attr.parse().expect("Failed to convert to float");
                 self.curr = self.chars.len();
                 Some(Token::Float(val))
             }

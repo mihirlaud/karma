@@ -36,7 +36,7 @@ pub enum SyntaxTreeNode {
     CompLeq,
     CompGeq,
     Integer(i32),
-    Float(f64),
+    Float(f32),
     Identifier(String),
     Null,
 }

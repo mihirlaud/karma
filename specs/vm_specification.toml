@@ -1,7 +1,100 @@
-[stack-mgmt.push]
-operands = ["int"]
-bytecode = 0x0000_0001
+# opcodes
 
-[stack-mgmt.pop]
-operands = ["int"]
-bytecode = 0x0000_0010
+# stack management
+# pushi     -- 0x10 operand
+# pushf     -- 0x11 operand
+# pop       -- 0x12 
+# pushsp    -- 0x13
+
+# memory management
+# decli     -- 0x20 operand
+# declf     -- 0x21 operand
+# loadi     -- 0x22 operand
+# loadf     -- 0x23 operand
+# stori     -- 0x24 operand
+# storf     -- 0x25 operand
+# dstri     -- 0x26 operand
+# dstrf     -- 0x27 operand
+
+# arithmetic
+# addi      -- 0x30
+# addf      -- 0x31
+# subi      -- 0x32
+# subf      -- 0x33
+# muli      -- 0x34
+# mulf      -- 0x35
+# divi      -- 0x36
+# divf      -- 0x37
+
+# control flow
+# ifTrue    -- 0x50 operand
+# ifFalse   -- 0x51 operand
+# eq        -- 0x52
+# neq       -- 0x53
+# less      -- 0x54
+# leq       -- 0x55
+# grt       -- 0x56
+# geq       -- 0x57
+# and       -- 0x58
+# or        -- 0x59
+# jump      -- 0x5A
+# ret       -- 0x5B
+
+# var a = b;
+#
+# declare a
+# push b
+# store a
+
+# a + b - c
+#
+# push a
+# push b
+# add
+# push c
+# sub
+
+# var a = b + c * d;
+#
+# declare a
+# push c
+# push d
+# mul
+# push b
+# add
+# store a
+
+# if a == b {
+#   if_block
+# } else {
+#   else_block
+# }
+#
+# push a
+# push b
+# if_true after_if_block
+# if_block bytes
+# jmp after_else_block
+# else_block bytes
+# 
+
+# while a < b {
+#   while_block
+# }
+#
+# cmp a, b
+# jge after_while_block
+# while_block bytes
+# jmp begin
+# 
+
+# fn func(a: int, b: int) {
+#   func_block
+#   return z
+# }
+# 
+# store a
+# store b
+# func_block bytes
+# push z
+# ret
