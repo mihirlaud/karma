@@ -29,16 +29,22 @@
 # control flow
 # ifTrue    -- 0x50 operand
 # ifFalse   -- 0x51 operand
-# eq        -- 0x52
-# neq       -- 0x53
-# less      -- 0x54
-# leq       -- 0x55
-# grt       -- 0x56
-# geq       -- 0x57
+# eqi       -- 0x52
+# neqi      -- 0x53
+# lessi     -- 0x54
+# leqi      -- 0x55
+# grti      -- 0x56
+# geqi      -- 0x57
 # and       -- 0x58
 # or        -- 0x59
 # jump      -- 0x5A
 # ret       -- 0x5B
+# eqf       -- 0x5C
+# neqf      -- 0x5D
+# lessf     -- 0x5E
+# leqf      -- 0x5F
+# grtf      -- 0x60
+# geqf      -- 0x61
 
 # var a = b;
 #

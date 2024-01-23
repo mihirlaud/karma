@@ -667,7 +667,9 @@ impl Source {
         for node_id in self.symbol_table.keys() {
             let filename = format!("comp/{node_id}.k");
             let mut file = if std::path::Path::new(&filename).exists() {
-                OpenOptions::new().write(true).open(filename).unwrap()
+                std::fs::remove_file(filename.clone())?;
+
+                std::fs::File::create(filename.clone())?
             } else {
                 std::fs::File::create(filename.clone())?
             };
@@ -810,10 +812,9 @@ impl Source {
         }
 
         let mut file = if std::path::Path::new("comp/graph.json").exists() {
-            OpenOptions::new()
-                .write(true)
-                .open("comp/graph.json")
-                .unwrap()
+            std::fs::remove_file("comp/graph.json")?;
+
+            std::fs::File::create("comp/graph.json")?
         } else {
             std::fs::File::create("comp/graph.json")?
         };
@@ -1199,7 +1200,15 @@ impl Source {
                     calls,
                     children[1].clone(),
                 );
-                bytes.push(0x52);
+
+                let t = Self::get_type(functions.clone(), var_set.clone(), children[0].clone())
+                    .expect("could not get type");
+
+                if t == "int" {
+                    bytes.push(0x52);
+                } else if t == "float" {
+                    bytes.push(0x5C);
+                }
             }
             SyntaxTreeNode::CompNeq => {
                 Self::generate_expr_bytecode(
@@ -1218,7 +1227,15 @@ impl Source {
                     calls,
                     children[1].clone(),
                 );
-                bytes.push(0x53);
+
+                let t = Self::get_type(functions.clone(), var_set.clone(), children[0].clone())
+                    .expect("could not get type");
+
+                if t == "int" {
+                    bytes.push(0x53);
+                } else if t == "float" {
+                    bytes.push(0x5D);
+                }
             }
             SyntaxTreeNode::CompLess => {
                 Self::generate_expr_bytecode(
@@ -1237,7 +1254,15 @@ impl Source {
                     calls,
                     children[1].clone(),
                 );
-                bytes.push(0x54);
+
+                let t = Self::get_type(functions.clone(), var_set.clone(), children[0].clone())
+                    .expect("could not get type");
+
+                if t == "int" {
+                    bytes.push(0x54);
+                } else if t == "float" {
+                    bytes.push(0x5E);
+                }
             }
             SyntaxTreeNode::CompGreater => {
                 Self::generate_expr_bytecode(
@@ -1256,7 +1281,15 @@ impl Source {
                     calls,
                     children[1].clone(),
                 );
-                bytes.push(0x56);
+
+                let t = Self::get_type(functions.clone(), var_set.clone(), children[0].clone())
+                    .expect("could not get type");
+
+                if t == "int" {
+                    bytes.push(0x56);
+                } else if t == "float" {
+                    bytes.push(0x60);
+                }
             }
             SyntaxTreeNode::CompLeq => {
                 Self::generate_expr_bytecode(
@@ -1275,7 +1308,15 @@ impl Source {
                     calls,
                     children[1].clone(),
                 );
-                bytes.push(0x55);
+
+                let t = Self::get_type(functions.clone(), var_set.clone(), children[0].clone())
+                    .expect("could not get type");
+
+                if t == "int" {
+                    bytes.push(0x55);
+                } else if t == "float" {
+                    bytes.push(0x5F);
+                }
             }
             SyntaxTreeNode::CompGeq => {
                 Self::generate_expr_bytecode(
@@ -1294,7 +1335,15 @@ impl Source {
                     calls,
                     children[1].clone(),
                 );
-                bytes.push(0x57);
+
+                let t = Self::get_type(functions.clone(), var_set.clone(), children[0].clone())
+                    .expect("could not get type");
+
+                if t == "int" {
+                    bytes.push(0x57);
+                } else if t == "float" {
+                    bytes.push(0x61);
+                }
             }
             SyntaxTreeNode::AddOp => {
                 Self::generate_expr_bytecode(
@@ -1469,7 +1518,7 @@ impl Source {
         let children = ast.children.clone();
         match ast.node {
             SyntaxTreeNode::InputList => {
-                Self::generate_expr_bytecode(
+                Self::generate_inputs_bytecode(
                     bytes,
                     functions,
                     var_set,
@@ -1477,7 +1526,7 @@ impl Source {
                     calls,
                     children[1].clone(),
                 );
-                Self::generate_inputs_bytecode(
+                Self::generate_expr_bytecode(
                     bytes,
                     functions,
                     var_set,

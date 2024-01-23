@@ -256,7 +256,10 @@ impl Parser {
                                     ]
                                 }
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err(
+                                        "syntax error: expected function call or assignment"
+                                            .to_string(),
+                                    );
                                 }
                             },
                             GrammarSymbol::Block => match token.clone() {
@@ -266,7 +269,7 @@ impl Parser {
                                     GrammarSymbol::Terminal(Token::RightBrace),
                                 ],
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err("syntax error: expected {".to_string());
                                 }
                             },
                             GrammarSymbol::BoolExpr => match token.clone() {
@@ -282,7 +285,7 @@ impl Parser {
                                     ]
                                 }
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err("syntax error: expected expression 1".to_string());
                                 }
                             },
                             GrammarSymbol::BoolTerm => match token.clone() {
@@ -294,7 +297,7 @@ impl Parser {
                                     vec![GrammarSymbol::BoolExpr, GrammarSymbol::BoolTerm1]
                                 }
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err("syntax error: expected expression 2".to_string());
                                 }
                             },
                             GrammarSymbol::BoolTerm1 => match token.clone() {
@@ -309,7 +312,7 @@ impl Parser {
                                     vec![]
                                 }
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err("syntax error: expected expression 3".to_string());
                                 }
                             },
                             GrammarSymbol::Comparison => match token.clone() {
@@ -322,7 +325,9 @@ impl Parser {
                                 Some(Token::Leq) => vec![GrammarSymbol::Terminal(Token::Leq)],
                                 Some(Token::Geq) => vec![GrammarSymbol::Terminal(Token::Geq)],
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err(
+                                        "syntax error: expected comparison symbol".to_string()
+                                    );
                                 }
                             },
                             GrammarSymbol::Conditional => match token.clone() {
@@ -334,7 +339,7 @@ impl Parser {
                                     vec![GrammarSymbol::BoolTerm, GrammarSymbol::Conditional1]
                                 }
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err("syntax error: expected expression 4".to_string());
                                 }
                             },
                             GrammarSymbol::Conditional1 => match token.clone() {
@@ -349,7 +354,7 @@ impl Parser {
                                     vec![]
                                 }
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err("syntax error: expected expression 5".to_string());
                                 }
                             },
                             GrammarSymbol::Expression => match token.clone() {
@@ -361,7 +366,7 @@ impl Parser {
                                     vec![GrammarSymbol::Term, GrammarSymbol::Expression1]
                                 }
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err("syntax error: expected expression 6".to_string());
                                 }
                             },
                             GrammarSymbol::Expression1 => match token.clone() {
@@ -393,7 +398,7 @@ impl Parser {
                                     ]
                                 }
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err("syntax error: expected expression 7".to_string());
                                 }
                             },
                             GrammarSymbol::Factor => match token.clone() {
@@ -413,7 +418,7 @@ impl Parser {
                                     vec![GrammarSymbol::Number]
                                 }
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err("syntax error: expected expression 8".to_string());
                                 }
                             },
                             GrammarSymbol::Func => match token.clone() {
@@ -430,7 +435,9 @@ impl Parser {
                                     ]
                                 }
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err(
+                                        "syntax error: expected function declaration".to_string()
+                                    );
                                 }
                             },
                             GrammarSymbol::ID => match token.clone() {
@@ -438,7 +445,7 @@ impl Parser {
                                     vec![GrammarSymbol::Terminal(Token::ID(id.clone()))]
                                 }
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err("syntax error: expected identifier".to_string());
                                 }
                             },
                             GrammarSymbol::IDOrFn => match token.clone() {
@@ -468,7 +475,10 @@ impl Parser {
                                     vec![]
                                 }
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err(
+                                        "syntax error: expected identifier or function call"
+                                            .to_string(),
+                                    );
                                 }
                             },
                             GrammarSymbol::InputList => match token.clone() {
@@ -483,7 +493,7 @@ impl Parser {
                                     vec![]
                                 }
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err("syntax error: expected valid input".to_string());
                                 }
                             },
                             GrammarSymbol::InputRest => match token.clone() {
@@ -498,7 +508,7 @@ impl Parser {
                                     vec![]
                                 }
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err("syntax error: expected comma".to_string());
                                 }
                             },
                             GrammarSymbol::NodeBlock => match token.clone() {
@@ -508,7 +518,7 @@ impl Parser {
                                     GrammarSymbol::Terminal(Token::RightBrace),
                                 ],
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err("syntax error: expected {".to_string());
                                 }
                             },
                             GrammarSymbol::NodeHeader => match token.clone() {
@@ -516,7 +526,9 @@ impl Parser {
                                     vec![GrammarSymbol::ID, GrammarSymbol::OptIDList]
                                 }
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err(
+                                        "syntax error: expected identifier for node".to_string()
+                                    );
                                 }
                             },
                             GrammarSymbol::NodeList => match token.clone() {
@@ -524,7 +536,8 @@ impl Parser {
                                     vec![GrammarSymbol::ID, GrammarSymbol::NodeRest]
                                 }
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err("syntax error: expected list of node identifiers"
+                                        .to_string());
                                 }
                             },
                             GrammarSymbol::NodeNT => match token.clone() {
@@ -537,7 +550,7 @@ impl Parser {
                                     // println!("N -> node Nh NB");
                                 }
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err("syntax error: expected node keyword".to_string());
                                 }
                             },
                             GrammarSymbol::NodeRest => match token.clone() {
@@ -547,7 +560,9 @@ impl Parser {
                                 ],
                                 Some(Token::LeftBrace) => vec![],
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err(
+                                        "syntax error: expected comma for node list".to_string()
+                                    );
                                 }
                             },
                             GrammarSymbol::Number => match token.clone() {
@@ -561,7 +576,7 @@ impl Parser {
                                     vec![GrammarSymbol::Positive]
                                 }
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err("syntax error: expected number".to_string());
                                 }
                             },
                             GrammarSymbol::OptElse => match token.clone() {
@@ -573,11 +588,12 @@ impl Parser {
                                 | Some(Token::ID(_))
                                 | Some(Token::While)
                                 | Some(Token::If)
+                                | Some(Token::Return)
                                 | Some(Token::RightBrace) => {
                                     vec![]
                                 }
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err("syntax error: expected else keyword".to_string());
                                 }
                             },
                             GrammarSymbol::OptIDList => match token.clone() {
@@ -587,7 +603,7 @@ impl Parser {
                                 ],
                                 Some(Token::LeftBrace) => vec![],
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err("syntax error: expected : or {".to_string());
                                 }
                             },
                             GrammarSymbol::Param => match token.clone() {
@@ -597,7 +613,7 @@ impl Parser {
                                     GrammarSymbol::ID,
                                 ],
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err("syntax error: expected parameter name".to_string());
                                 }
                             },
                             GrammarSymbol::ParamList => match token.clone() {
@@ -606,7 +622,7 @@ impl Parser {
                                 }
                                 Some(Token::RightParen) => vec![],
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err("syntax error: expected parameter list".to_string());
                                 }
                             },
                             GrammarSymbol::ParamRest => match token.clone() {
@@ -616,7 +632,9 @@ impl Parser {
                                 ],
                                 Some(Token::RightParen) => vec![],
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err(
+                                        "syntax error: expected comma for param list".to_string()
+                                    );
                                 }
                             },
                             GrammarSymbol::Positive => match token.clone() {
@@ -627,7 +645,7 @@ impl Parser {
                                     vec![GrammarSymbol::Terminal(Token::Float(num))]
                                 }
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err("syntax error: expected number".to_string());
                                 }
                             },
                             GrammarSymbol::Program => match token.clone() {
@@ -640,7 +658,7 @@ impl Parser {
                                     // println!("P -> `");
                                 }
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err("syntax error: expected node keyword".to_string());
                                 }
                             },
                             GrammarSymbol::ReturnType => match token.clone() {
@@ -651,7 +669,7 @@ impl Parser {
                                 ],
                                 Some(Token::Not) => vec![GrammarSymbol::Terminal(Token::Not)],
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err("syntax error: invalid return type".to_string());
                                 }
                             },
                             GrammarSymbol::Stmt => match token.clone() {
@@ -703,7 +721,7 @@ impl Parser {
                                     ]
                                 }
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err("syntax error: invalid statement".to_string());
                                 }
                             },
                             GrammarSymbol::StmtList => match token.clone() {
@@ -715,7 +733,7 @@ impl Parser {
                                     vec![]
                                 }
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err("syntax error: unrecognized statement".to_string());
                                 }
                             },
                             GrammarSymbol::Term => match token.clone() {
@@ -727,7 +745,7 @@ impl Parser {
                                     vec![GrammarSymbol::Factor, GrammarSymbol::Term1]
                                 }
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err("syntax error: expected term".to_string());
                                 }
                             },
                             GrammarSymbol::Term1 => match token.clone() {
@@ -762,7 +780,7 @@ impl Parser {
                                 }
                                 _ => {
                                     println!("{:?}", token.unwrap().clone());
-                                    return Err("syntax error".to_string());
+                                    return Err("syntax error: expected term 2".to_string());
                                 }
                             },
                             GrammarSymbol::TLStmt => match token.clone() {
@@ -770,7 +788,9 @@ impl Parser {
                                     vec![GrammarSymbol::Func]
                                 }
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err(
+                                        "syntax error: invalid top level statement".to_string()
+                                    );
                                 }
                             },
                             GrammarSymbol::TLStmtList => match token.clone() {
@@ -781,7 +801,9 @@ impl Parser {
                                     vec![]
                                 }
                                 _ => {
-                                    return Err("syntax error".to_string());
+                                    return Err(
+                                        "syntax error: invalid top level statement 2".to_string()
+                                    );
                                 }
                             },
                         };

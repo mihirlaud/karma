@@ -145,7 +145,7 @@ prods = [
     [""]
 ]
 first = ["else", ""]
-follow = ["var", "const", "IDENTIFIER", "while", "if", "}"]
+follow = ["var", "const", "IDENTIFIER", "while", "if", "return", "}"]
 
 [expression]
 prods = [
