@@ -737,7 +737,6 @@ impl Source {
             }
 
             for fn_id in self.symbol_table[node_id].keys() {
-                println!("{fn_id}");
                 if fn_id == "main" {
                     continue;
                 }
@@ -799,8 +798,6 @@ impl Source {
                     _ => {}
                 }
             }
-
-            println!("{:?}", function_locations);
 
             for (call_loc, function_name) in calls {
                 let function_location = function_locations[&function_name] as u32;
@@ -1016,20 +1013,10 @@ impl Source {
 
                 bytes.push(0x5A);
 
-                println!("{return_to}");
-
                 bytes.push(((return_to & 0xFF000000) >> 24) as u8);
                 bytes.push(((return_to & 0x00FF0000) >> 16) as u8);
                 bytes.push(((return_to & 0x0000FF00) >> 8) as u8);
                 bytes.push((return_to & 0x000000FF) as u8);
-
-                println!(
-                    "{} {} {} {}",
-                    bytes[bytes.len() - 4],
-                    bytes[bytes.len() - 3],
-                    bytes[bytes.len() - 2],
-                    bytes[bytes.len() - 1]
-                );
 
                 let jump_addr = bytes.len() as u32;
                 bytes[jump_loc] = ((jump_addr & 0xFF000000) >> 24) as u8;
@@ -1473,15 +1460,12 @@ impl Source {
             SyntaxTreeNode::Float(num) => {
                 bytes.push(0x11);
 
-                let b1 = (0xFF & (num as u32)) as u8;
-                let b2 = (0xFF & (num as u32 >> 8)) as u8;
-                let b3 = (0xFF & (num as u32 >> 16)) as u8;
-                let b4 = (0xFF & (num as u32 >> 24)) as u8;
+                let b = num.to_be_bytes();
 
-                bytes.push(b4);
-                bytes.push(b3);
-                bytes.push(b2);
-                bytes.push(b1);
+                bytes.push(b[0]);
+                bytes.push(b[1]);
+                bytes.push(b[2]);
+                bytes.push(b[3]);
             }
             SyntaxTreeNode::Identifier(id) => {
                 let (t, addr) = variable_addresses[&id].clone();
