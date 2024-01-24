@@ -37,7 +37,10 @@ pub enum SyntaxTreeNode {
     CompGeq,
     Integer(i32),
     Float(f32),
+    Character(char),
     Identifier(String),
+    True,
+    False,
     Null,
 }
 
@@ -158,6 +161,7 @@ pub enum GrammarSymbol {
     Comparison,
     Conditional,
     Conditional1,
+    Definition,
     Expression,
     Expression1,
     Factor,
@@ -171,7 +175,7 @@ pub enum GrammarSymbol {
     NodeList,
     NodeNT,
     NodeRest,
-    Number,
+    Primitive,
     OptElse,
     OptIDList,
     Param,
@@ -186,6 +190,7 @@ pub enum GrammarSymbol {
     Term1,
     TLStmt,
     TLStmtList,
+    Type,
 }
 
 impl Parser {
@@ -207,7 +212,7 @@ impl Parser {
         let mut idx = 0;
 
         loop {
-            let token = self.lexer.next_token();
+            let token = self.lexer.next_token()?;
 
             while !stack.is_empty() {
                 let top = stack.pop_back();
@@ -243,7 +248,7 @@ impl Parser {
                                 Some(Token::Assign) => {
                                     vec![
                                         GrammarSymbol::Terminal(Token::Assign),
-                                        GrammarSymbol::Expression,
+                                        GrammarSymbol::Conditional,
                                         GrammarSymbol::Terminal(Token::Semicolon),
                                     ]
                                 }
@@ -256,6 +261,7 @@ impl Parser {
                                     ]
                                 }
                                 _ => {
+                                    println!("{:?}", token.clone());
                                     return Err(
                                         "syntax error: expected function call or assignment"
                                             .to_string(),
@@ -277,12 +283,11 @@ impl Parser {
                                 | Some(Token::Sub)
                                 | Some(Token::Integer(_))
                                 | Some(Token::Float(_))
+                                | Some(Token::Character(_))
+                                | Some(Token::True)
+                                | Some(Token::False)
                                 | Some(Token::LeftParen) => {
-                                    vec![
-                                        GrammarSymbol::Expression,
-                                        GrammarSymbol::Comparison,
-                                        GrammarSymbol::Expression,
-                                    ]
+                                    vec![GrammarSymbol::Expression, GrammarSymbol::Comparison]
                                 }
                                 _ => {
                                     return Err("syntax error: expected expression 1".to_string());
@@ -293,7 +298,10 @@ impl Parser {
                                 | Some(Token::Sub)
                                 | Some(Token::LeftParen)
                                 | Some(Token::Integer(_))
-                                | Some(Token::Float(_)) => {
+                                | Some(Token::Float(_))
+                                | Some(Token::Character(_))
+                                | Some(Token::True)
+                                | Some(Token::False) => {
                                     vec![GrammarSymbol::BoolExpr, GrammarSymbol::BoolTerm1]
                                 }
                                 _ => {
@@ -308,7 +316,9 @@ impl Parser {
                                         GrammarSymbol::Conditional1,
                                     ]
                                 }
-                                Some(Token::LeftBrace) | Some(Token::LogicalOr) => {
+                                Some(Token::LeftBrace)
+                                | Some(Token::LogicalOr)
+                                | Some(Token::Semicolon) => {
                                     vec![]
                                 }
                                 _ => {
@@ -316,14 +326,38 @@ impl Parser {
                                 }
                             },
                             GrammarSymbol::Comparison => match token.clone() {
-                                Some(Token::Equals) => vec![GrammarSymbol::Terminal(Token::Equals)],
-                                Some(Token::Neq) => vec![GrammarSymbol::Terminal(Token::Neq)],
-                                Some(Token::Less) => vec![GrammarSymbol::Terminal(Token::Less)],
+                                Some(Token::Equals) => vec![
+                                    GrammarSymbol::Terminal(Token::Equals),
+                                    GrammarSymbol::Expression,
+                                ],
+                                Some(Token::Neq) => vec![
+                                    GrammarSymbol::Terminal(Token::Neq),
+                                    GrammarSymbol::Expression,
+                                ],
+                                Some(Token::Less) => vec![
+                                    GrammarSymbol::Terminal(Token::Less),
+                                    GrammarSymbol::Expression,
+                                ],
                                 Some(Token::Greater) => {
-                                    vec![GrammarSymbol::Terminal(Token::Greater)]
+                                    vec![
+                                        GrammarSymbol::Terminal(Token::Greater),
+                                        GrammarSymbol::Expression,
+                                    ]
                                 }
-                                Some(Token::Leq) => vec![GrammarSymbol::Terminal(Token::Leq)],
-                                Some(Token::Geq) => vec![GrammarSymbol::Terminal(Token::Geq)],
+                                Some(Token::Leq) => vec![
+                                    GrammarSymbol::Terminal(Token::Leq),
+                                    GrammarSymbol::Expression,
+                                ],
+                                Some(Token::Geq) => vec![
+                                    GrammarSymbol::Terminal(Token::Geq),
+                                    GrammarSymbol::Expression,
+                                ],
+                                Some(Token::LogicalAnd)
+                                | Some(Token::LogicalOr)
+                                | Some(Token::LeftBrace)
+                                | Some(Token::Semicolon) => {
+                                    vec![]
+                                }
                                 _ => {
                                     return Err(
                                         "syntax error: expected comparison symbol".to_string()
@@ -335,10 +369,14 @@ impl Parser {
                                 | Some(Token::LeftParen)
                                 | Some(Token::Sub)
                                 | Some(Token::Integer(_))
-                                | Some(Token::Float(_)) => {
+                                | Some(Token::Float(_))
+                                | Some(Token::Character(_))
+                                | Some(Token::True)
+                                | Some(Token::False) => {
                                     vec![GrammarSymbol::BoolTerm, GrammarSymbol::Conditional1]
                                 }
                                 _ => {
+                                    println!("{:?}", token.clone());
                                     return Err("syntax error: expected expression 4".to_string());
                                 }
                             },
@@ -350,11 +388,40 @@ impl Parser {
                                         GrammarSymbol::Conditional1,
                                     ]
                                 }
-                                Some(Token::LeftBrace) => {
+                                Some(Token::LeftBrace) | Some(Token::Semicolon) => {
                                     vec![]
                                 }
                                 _ => {
                                     return Err("syntax error: expected expression 5".to_string());
+                                }
+                            },
+                            GrammarSymbol::Definition => match token.clone() {
+                                Some(Token::Var) => {
+                                    vec![
+                                        GrammarSymbol::Terminal(Token::Var),
+                                        GrammarSymbol::ID,
+                                        GrammarSymbol::Terminal(Token::Colon),
+                                        GrammarSymbol::Type,
+                                        GrammarSymbol::Terminal(Token::Assign),
+                                        GrammarSymbol::Conditional,
+                                        GrammarSymbol::Terminal(Token::Semicolon),
+                                    ]
+                                }
+                                Some(Token::Const) => {
+                                    vec![
+                                        GrammarSymbol::Terminal(Token::Const),
+                                        GrammarSymbol::ID,
+                                        GrammarSymbol::Terminal(Token::Colon),
+                                        GrammarSymbol::Type,
+                                        GrammarSymbol::Terminal(Token::Assign),
+                                        GrammarSymbol::Conditional,
+                                        GrammarSymbol::Terminal(Token::Semicolon),
+                                    ]
+                                }
+                                _ => {
+                                    return Err(
+                                        "syntax error: expected variable definition".to_string()
+                                    );
                                 }
                             },
                             GrammarSymbol::Expression => match token.clone() {
@@ -362,6 +429,9 @@ impl Parser {
                                 | Some(Token::Sub)
                                 | Some(Token::Integer(_))
                                 | Some(Token::Float(_))
+                                | Some(Token::Character(_))
+                                | Some(Token::True)
+                                | Some(Token::False)
                                 | Some(Token::LeftParen) => {
                                     vec![GrammarSymbol::Term, GrammarSymbol::Expression1]
                                 }
@@ -414,8 +484,10 @@ impl Parser {
                                 }
                                 Some(Token::Sub)
                                 | Some(Token::Integer(_))
-                                | Some(Token::Float(_)) => {
-                                    vec![GrammarSymbol::Number]
+                                | Some(Token::Float(_))
+                                | Some(Token::True)
+                                | Some(Token::False) => {
+                                    vec![GrammarSymbol::Primitive]
                                 }
                                 _ => {
                                     return Err("syntax error: expected expression 8".to_string());
@@ -445,6 +517,7 @@ impl Parser {
                                     vec![GrammarSymbol::Terminal(Token::ID(id.clone()))]
                                 }
                                 _ => {
+                                    println!("{:?}", stack);
                                     return Err("syntax error: expected identifier".to_string());
                                 }
                             },
@@ -486,6 +559,9 @@ impl Parser {
                                 | Some(Token::Sub)
                                 | Some(Token::Integer(_))
                                 | Some(Token::Float(_))
+                                | Some(Token::Character(_))
+                                | Some(Token::True)
+                                | Some(Token::False)
                                 | Some(Token::LeftParen) => {
                                     vec![GrammarSymbol::Expression, GrammarSymbol::InputRest]
                                 }
@@ -565,7 +641,13 @@ impl Parser {
                                     );
                                 }
                             },
-                            GrammarSymbol::Number => match token.clone() {
+                            GrammarSymbol::Primitive => match token.clone() {
+                                Some(Token::True) => {
+                                    vec![GrammarSymbol::Terminal(Token::True)]
+                                }
+                                Some(Token::False) => {
+                                    vec![GrammarSymbol::Terminal(Token::False)]
+                                }
                                 Some(Token::Sub) => {
                                     vec![
                                         GrammarSymbol::Terminal(Token::Sub),
@@ -610,7 +692,7 @@ impl Parser {
                                 Some(Token::ID(_)) => vec![
                                     GrammarSymbol::ID,
                                     GrammarSymbol::Terminal(Token::Colon),
-                                    GrammarSymbol::ID,
+                                    GrammarSymbol::Type,
                                 ],
                                 _ => {
                                     return Err("syntax error: expected parameter name".to_string());
@@ -662,7 +744,10 @@ impl Parser {
                                 }
                             },
                             GrammarSymbol::ReturnType => match token.clone() {
-                                Some(Token::ID(_)) => vec![GrammarSymbol::ID],
+                                Some(Token::ID(_)) | Some(Token::Int) | Some(Token::FloatKW)
+                                | Some(Token::Bool) | Some(Token::Char) => {
+                                    vec![GrammarSymbol::Type]
+                                }
                                 Some(Token::LeftParen) => vec![
                                     GrammarSymbol::Terminal(Token::LeftParen),
                                     GrammarSymbol::Terminal(Token::RightParen),
@@ -674,26 +759,10 @@ impl Parser {
                             },
                             GrammarSymbol::Stmt => match token.clone() {
                                 Some(Token::Var) => {
-                                    vec![
-                                        GrammarSymbol::Terminal(Token::Var),
-                                        GrammarSymbol::ID,
-                                        GrammarSymbol::Terminal(Token::Colon),
-                                        GrammarSymbol::ID,
-                                        GrammarSymbol::Terminal(Token::Assign),
-                                        GrammarSymbol::Expression,
-                                        GrammarSymbol::Terminal(Token::Semicolon),
-                                    ]
+                                    vec![GrammarSymbol::Definition]
                                 }
                                 Some(Token::Const) => {
-                                    vec![
-                                        GrammarSymbol::Terminal(Token::Const),
-                                        GrammarSymbol::ID,
-                                        GrammarSymbol::Terminal(Token::Colon),
-                                        GrammarSymbol::ID,
-                                        GrammarSymbol::Terminal(Token::Assign),
-                                        GrammarSymbol::Expression,
-                                        GrammarSymbol::Terminal(Token::Semicolon),
-                                    ]
+                                    vec![GrammarSymbol::Definition]
                                 }
                                 Some(Token::ID(_)) => {
                                     vec![GrammarSymbol::ID, GrammarSymbol::AssignOrFnCall]
@@ -716,7 +785,7 @@ impl Parser {
                                 Some(Token::Return) => {
                                     vec![
                                         GrammarSymbol::Terminal(Token::Return),
-                                        GrammarSymbol::Expression,
+                                        GrammarSymbol::Conditional,
                                         GrammarSymbol::Terminal(Token::Semicolon),
                                     ]
                                 }
@@ -741,8 +810,13 @@ impl Parser {
                                 | Some(Token::Sub)
                                 | Some(Token::Integer(_))
                                 | Some(Token::Float(_))
+                                | Some(Token::True)
+                                | Some(Token::False)
                                 | Some(Token::LeftParen) => {
                                     vec![GrammarSymbol::Factor, GrammarSymbol::Term1]
+                                }
+                                Some(Token::Character(c)) => {
+                                    vec![GrammarSymbol::Terminal(Token::Character(c))]
                                 }
                                 _ => {
                                     return Err("syntax error: expected term".to_string());
@@ -784,6 +858,12 @@ impl Parser {
                                 }
                             },
                             GrammarSymbol::TLStmt => match token.clone() {
+                                Some(Token::Export) => {
+                                    vec![
+                                        GrammarSymbol::Terminal(Token::Export),
+                                        GrammarSymbol::Definition,
+                                    ]
+                                }
                                 Some(Token::Fn) => {
                                     vec![GrammarSymbol::Func]
                                 }
@@ -794,7 +874,7 @@ impl Parser {
                                 }
                             },
                             GrammarSymbol::TLStmtList => match token.clone() {
-                                Some(Token::Fn) => {
+                                Some(Token::Fn) | Some(Token::Export) => {
                                     vec![GrammarSymbol::TLStmt, GrammarSymbol::TLStmtList]
                                 }
                                 Some(Token::RightBrace) => {
@@ -804,6 +884,26 @@ impl Parser {
                                     return Err(
                                         "syntax error: invalid top level statement 2".to_string()
                                     );
+                                }
+                            },
+                            GrammarSymbol::Type => match token.clone() {
+                                Some(Token::ID(_)) => {
+                                    vec![GrammarSymbol::ID]
+                                }
+                                Some(Token::Int) => {
+                                    vec![GrammarSymbol::Terminal(Token::Int)]
+                                }
+                                Some(Token::FloatKW) => {
+                                    vec![GrammarSymbol::Terminal(Token::FloatKW)]
+                                }
+                                Some(Token::Bool) => {
+                                    vec![GrammarSymbol::Terminal(Token::Bool)]
+                                }
+                                Some(Token::Char) => {
+                                    vec![GrammarSymbol::Terminal(Token::Char)]
+                                }
+                                _ => {
+                                    return Err("syntax error: expected type".to_string());
                                 }
                             },
                         };
@@ -975,7 +1075,7 @@ impl Parser {
                 _ => {}
             },
             GrammarSymbol::ReturnType => match self.parse_tree.get_node(children[0]) {
-                GrammarSymbol::ID => {
+                GrammarSymbol::Type => {
                     tree.node = SyntaxTreeNode::ReturnType;
 
                     tree.children = vec![self.build_ast_from_parse_node(children[0])];
@@ -999,6 +1099,24 @@ impl Parser {
                 _ => {
                     todo!("implement return types");
                 }
+            },
+            GrammarSymbol::Type => match self.parse_tree.get_node(children[0]) {
+                GrammarSymbol::ID => {
+                    tree = self.build_ast_from_parse_node(children[0]);
+                }
+                GrammarSymbol::Terminal(Token::Int) => {
+                    tree.node = SyntaxTreeNode::Identifier("int".to_string());
+                }
+                GrammarSymbol::Terminal(Token::FloatKW) => {
+                    tree.node = SyntaxTreeNode::Identifier("float".to_string());
+                }
+                GrammarSymbol::Terminal(Token::Bool) => {
+                    tree.node = SyntaxTreeNode::Identifier("bool".to_string());
+                }
+                GrammarSymbol::Terminal(Token::Char) => {
+                    tree.node = SyntaxTreeNode::Identifier("char".to_string());
+                }
+                _ => {}
             },
             GrammarSymbol::Block => {
                 tree = self.build_ast_from_parse_node(children[1]);
@@ -1024,23 +1142,8 @@ impl Parser {
                         self.build_ast_from_parse_node(children[3]),
                     ];
                 }
-                GrammarSymbol::Terminal(Token::Const) => {
-                    tree.node = SyntaxTreeNode::DeclareConst;
-
-                    tree.children = vec![
-                        self.build_ast_from_parse_node(children[1]),
-                        self.build_ast_from_parse_node(children[3]),
-                        self.build_ast_from_parse_node(children[5]),
-                    ];
-                }
-                GrammarSymbol::Terminal(Token::Var) => {
-                    tree.node = SyntaxTreeNode::DeclareVar;
-
-                    tree.children = vec![
-                        self.build_ast_from_parse_node(children[1]),
-                        self.build_ast_from_parse_node(children[3]),
-                        self.build_ast_from_parse_node(children[5]),
-                    ];
+                GrammarSymbol::Definition => {
+                    tree = self.build_ast_from_parse_node(children[0]);
                 }
                 GrammarSymbol::Terminal(Token::While) => {
                     tree.node = SyntaxTreeNode::WhileLoop;
@@ -1060,6 +1163,27 @@ impl Parser {
                     tree.node = SyntaxTreeNode::ReturnValue;
 
                     tree.children = vec![self.build_ast_from_parse_node(children[1])];
+                }
+                _ => {}
+            },
+            GrammarSymbol::Definition => match self.parse_tree.get_node(children[0]) {
+                GrammarSymbol::Terminal(Token::Const) => {
+                    tree.node = SyntaxTreeNode::DeclareConst;
+
+                    tree.children = vec![
+                        self.build_ast_from_parse_node(children[1]),
+                        self.build_ast_from_parse_node(children[3]),
+                        self.build_ast_from_parse_node(children[5]),
+                    ];
+                }
+                GrammarSymbol::Terminal(Token::Var) => {
+                    tree.node = SyntaxTreeNode::DeclareVar;
+
+                    tree.children = vec![
+                        self.build_ast_from_parse_node(children[1]),
+                        self.build_ast_from_parse_node(children[3]),
+                        self.build_ast_from_parse_node(children[5]),
+                    ];
                 }
                 _ => {}
             },
@@ -1146,22 +1270,28 @@ impl Parser {
                     tree.node = SyntaxTreeNode::Null;
                 }
             },
-            GrammarSymbol::Term => {
-                let subtree = self.build_ast_from_parse_node(children[1]);
+            GrammarSymbol::Term => match self.parse_tree.get_node(children[0]) {
+                GrammarSymbol::Factor => {
+                    let subtree = self.build_ast_from_parse_node(children[1]);
 
-                match subtree.node {
-                    SyntaxTreeNode::MulOp | SyntaxTreeNode::DivOp => {
-                        tree = subtree;
-                        tree.children
-                            .insert(0, self.build_ast_from_parse_node(children[0]));
+                    match subtree.node {
+                        SyntaxTreeNode::MulOp | SyntaxTreeNode::DivOp => {
+                            tree = subtree;
+                            tree.children
+                                .insert(0, self.build_ast_from_parse_node(children[0]));
 
-                        tree = Self::rebalance_term_tree(tree);
-                    }
-                    _ => {
-                        tree = self.build_ast_from_parse_node(children[0]);
+                            tree = Self::rebalance_term_tree(tree);
+                        }
+                        _ => {
+                            tree = self.build_ast_from_parse_node(children[0]);
+                        }
                     }
                 }
-            }
+                GrammarSymbol::Terminal(Token::Character(c)) => {
+                    tree.node = SyntaxTreeNode::Character(c);
+                }
+                _ => {}
+            },
             GrammarSymbol::Term1 => match self.parse_tree.get_node(children[0]) {
                 GrammarSymbol::Terminal(Token::Mul) => {
                     let mut subtree = self.build_ast_from_parse_node(children[2]);
@@ -1208,7 +1338,7 @@ impl Parser {
                 }
             },
             GrammarSymbol::Factor => match self.parse_tree.get_node(children[0]) {
-                GrammarSymbol::Number => {
+                GrammarSymbol::Primitive => {
                     tree = self.build_ast_from_parse_node(children[0]);
                 }
                 // GrammarSymbol::Terminal(Token::Integer(num)) => {
@@ -1238,7 +1368,7 @@ impl Parser {
                 }
                 _ => {}
             },
-            GrammarSymbol::Number => match self.parse_tree.get_node(children[0]) {
+            GrammarSymbol::Primitive => match self.parse_tree.get_node(children[0]) {
                 GrammarSymbol::Terminal(Token::Sub) => {
                     let subtree = self.build_ast_from_parse_node(children[1]);
                     tree.node = match subtree.node {
@@ -1249,6 +1379,12 @@ impl Parser {
                 }
                 GrammarSymbol::Positive => {
                     tree = self.build_ast_from_parse_node(children[0]);
+                }
+                GrammarSymbol::Terminal(Token::True) => {
+                    tree.node = SyntaxTreeNode::True;
+                }
+                GrammarSymbol::Terminal(Token::False) => {
+                    tree.node = SyntaxTreeNode::False;
                 }
                 _ => {}
             },
@@ -1352,17 +1488,27 @@ impl Parser {
             },
             GrammarSymbol::BoolExpr => {
                 let comp = self.build_ast_from_parse_node(children[1]);
-
-                tree.node = comp.node;
-
-                tree.children = vec![
-                    self.build_ast_from_parse_node(children[0]),
-                    self.build_ast_from_parse_node(children[2]),
-                ];
+                match comp.node {
+                    SyntaxTreeNode::Null => {
+                        tree = self.build_ast_from_parse_node(children[0]);
+                    }
+                    _ => {
+                        tree = comp;
+                        tree.children
+                            .insert(0, self.build_ast_from_parse_node(children[0]));
+                    }
+                }
             }
-            GrammarSymbol::Comparison => {
-                tree = self.build_ast_from_parse_node(children[0]);
-            }
+            GrammarSymbol::Comparison => match self.parse_tree.get_node(children[0]) {
+                GrammarSymbol::Empty => {
+                    tree.node = SyntaxTreeNode::Null;
+                }
+                _ => {
+                    tree = self.build_ast_from_parse_node(children[0]);
+
+                    tree.children = vec![self.build_ast_from_parse_node(children[1])];
+                }
+            },
             GrammarSymbol::Terminal(Token::Equals) => {
                 tree.node = SyntaxTreeNode::CompEq;
             }

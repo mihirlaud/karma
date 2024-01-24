@@ -1,6 +1,5 @@
 use std::{
     collections::{HashMap, HashSet, LinkedList},
-    fs::OpenOptions,
     io::Write,
 };
 
@@ -140,6 +139,7 @@ impl Source {
 
                 let ret = match ast.children[2].clone().children[0].clone().node {
                     SyntaxTreeNode::Identifier(id) => id,
+                    SyntaxTreeNode::NoReturn => "!".to_string(),
                     _ => "".to_string(),
                 };
 
@@ -497,7 +497,40 @@ impl Source {
                 let r_value =
                     Self::get_type(functions.clone(), var_set.clone(), children[1].clone())?;
 
-                if l_value == r_value {
+                if l_value == r_value
+                    && (l_value == "int" || l_value == "float" || l_value == "char")
+                {
+                    Ok(l_value)
+                } else {
+                    Err(11)
+                }
+            }
+            SyntaxTreeNode::CompEq
+            | SyntaxTreeNode::CompNeq
+            | SyntaxTreeNode::CompLess
+            | SyntaxTreeNode::CompGreater
+            | SyntaxTreeNode::CompLeq
+            | SyntaxTreeNode::CompGeq => {
+                let l_value =
+                    Self::get_type(functions.clone(), var_set.clone(), children[0].clone())?;
+                let r_value =
+                    Self::get_type(functions.clone(), var_set.clone(), children[1].clone())?;
+
+                if l_value == r_value
+                    && (l_value == "int" || l_value == "float" || l_value == "char")
+                {
+                    Ok("bool".to_string())
+                } else {
+                    Err(11)
+                }
+            }
+            SyntaxTreeNode::AndOp | SyntaxTreeNode::OrOp => {
+                let l_value =
+                    Self::get_type(functions.clone(), var_set.clone(), children[0].clone())?;
+                let r_value =
+                    Self::get_type(functions.clone(), var_set.clone(), children[1].clone())?;
+
+                if l_value == r_value && l_value == "bool" {
                     Ok(l_value)
                 } else {
                     Err(11)
@@ -514,6 +547,8 @@ impl Source {
             }
             SyntaxTreeNode::Integer(_) => Ok(String::from("int")),
             SyntaxTreeNode::Float(_) => Ok(String::from("float")),
+            SyntaxTreeNode::True | SyntaxTreeNode::False => Ok(String::from("bool")),
+            SyntaxTreeNode::Character(_) => Ok(String::from("char")),
             SyntaxTreeNode::FnCall => {
                 let params =
                     Self::get_inputs(functions.clone(), var_set.clone(), children[1].clone());
@@ -589,6 +624,8 @@ impl Source {
     ) -> Result<(), usize> {
         if ret == "" {
             Self::check_return_func_1(ast)?;
+        } else if ret == "!" {
+            Self::check_return_func_3(ast)?;
         } else {
             Self::check_return_func_2(functions, var_set, ast, ret)?;
         }
@@ -612,6 +649,26 @@ impl Source {
         Ok(())
     }
 
+    fn check_return_func_3(ast: AbstractSyntaxTree) -> Result<(), usize> {
+        let children = ast.children.clone();
+        match ast.node {
+            SyntaxTreeNode::WhileLoop => Ok(()),
+            SyntaxTreeNode::ReturnValue => Err(18),
+            _ => {
+                for child in children {
+                    match Self::check_return_func_1(child) {
+                        Ok(_) => {
+                            return Ok(());
+                        }
+                        _ => {}
+                    }
+                }
+
+                Err(19)
+            }
+        }
+    }
+
     fn check_return_func_2(
         functions: Vec<(String, String, Vec<(String, String)>)>,
         var_set: HashSet<(String, String)>,
@@ -622,23 +679,29 @@ impl Source {
         match ast.node {
             SyntaxTreeNode::ReturnValue => {
                 let t = Self::get_type(functions, var_set, children[0].clone())?;
-                if t != ret_type {
-                    return Err(15);
+                if t == ret_type {
+                    Ok(())
+                } else {
+                    Err(15)
                 }
             }
             _ => {
                 for child in children {
-                    Self::check_return_func_2(
+                    match Self::check_return_func_2(
                         functions.clone(),
                         var_set.clone(),
                         child,
                         ret_type.clone(),
-                    )?;
+                    ) {
+                        Ok(()) => {
+                            return Ok(());
+                        }
+                        _ => {}
+                    }
                 }
+                Err(20)
             }
         }
-
-        Ok(())
     }
 
     pub fn compile(&self) -> Result<(), std::io::Error> {
@@ -704,6 +767,24 @@ impl Source {
                             bytes.push((addr & 0x000000FF) as u8);
 
                             addr += 4;
+                        } else if var_type == "bool" {
+                            bytes.push(0x28);
+
+                            bytes.push(((addr & 0xFF000000) >> 24) as u8);
+                            bytes.push(((addr & 0x00FF0000) >> 16) as u8);
+                            bytes.push(((addr & 0x0000FF00) >> 8) as u8);
+                            bytes.push((addr & 0x000000FF) as u8);
+
+                            addr += 1;
+                        } else if var_type == "char" {
+                            bytes.push(0x2C);
+
+                            bytes.push(((addr & 0xFF000000) >> 24) as u8);
+                            bytes.push(((addr & 0x00FF0000) >> 16) as u8);
+                            bytes.push(((addr & 0x0000FF00) >> 8) as u8);
+                            bytes.push((addr & 0x000000FF) as u8);
+
+                            addr += 1;
                         }
                     }
 
@@ -718,6 +799,20 @@ impl Source {
                             bytes.push((addr & 0x000000FF) as u8);
                         } else if param_type == "float" {
                             bytes.push(0x25);
+
+                            bytes.push(((addr & 0xFF000000) >> 24) as u8);
+                            bytes.push(((addr & 0x00FF0000) >> 16) as u8);
+                            bytes.push(((addr & 0x0000FF00) >> 8) as u8);
+                            bytes.push((addr & 0x000000FF) as u8);
+                        } else if param_type == "bool" {
+                            bytes.push(0x2A);
+
+                            bytes.push(((addr & 0xFF000000) >> 24) as u8);
+                            bytes.push(((addr & 0x00FF0000) >> 16) as u8);
+                            bytes.push(((addr & 0x0000FF00) >> 8) as u8);
+                            bytes.push((addr & 0x000000FF) as u8);
+                        } else if param_type == "char" {
+                            bytes.push(0x2E);
 
                             bytes.push(((addr & 0xFF000000) >> 24) as u8);
                             bytes.push(((addr & 0x00FF0000) >> 16) as u8);
@@ -765,6 +860,24 @@ impl Source {
                                 bytes.push((addr & 0x000000FF) as u8);
 
                                 addr += 4;
+                            } else if var_type == "bool" {
+                                bytes.push(0x28);
+
+                                bytes.push(((addr & 0xFF000000) >> 24) as u8);
+                                bytes.push(((addr & 0x00FF0000) >> 16) as u8);
+                                bytes.push(((addr & 0x0000FF00) >> 8) as u8);
+                                bytes.push((addr & 0x000000FF) as u8);
+
+                                addr += 1;
+                            } else if var_type == "char" {
+                                bytes.push(0x2C);
+
+                                bytes.push(((addr & 0xFF000000) >> 24) as u8);
+                                bytes.push(((addr & 0x00FF0000) >> 16) as u8);
+                                bytes.push(((addr & 0x0000FF00) >> 8) as u8);
+                                bytes.push((addr & 0x000000FF) as u8);
+
+                                addr += 1;
                             }
                         }
 
@@ -779,6 +892,20 @@ impl Source {
                                 bytes.push((addr & 0x000000FF) as u8);
                             } else if param_type == "float" {
                                 bytes.push(0x25);
+
+                                bytes.push(((addr & 0xFF000000) >> 24) as u8);
+                                bytes.push(((addr & 0x00FF0000) >> 16) as u8);
+                                bytes.push(((addr & 0x0000FF00) >> 8) as u8);
+                                bytes.push((addr & 0x000000FF) as u8);
+                            } else if param_type == "bool" {
+                                bytes.push(0x2A);
+
+                                bytes.push(((addr & 0xFF000000) >> 24) as u8);
+                                bytes.push(((addr & 0x00FF0000) >> 16) as u8);
+                                bytes.push(((addr & 0x0000FF00) >> 8) as u8);
+                                bytes.push((addr & 0x000000FF) as u8);
+                            } else if param_type == "char" {
+                                bytes.push(0x2E);
 
                                 bytes.push(((addr & 0xFF000000) >> 24) as u8);
                                 bytes.push(((addr & 0x00FF0000) >> 16) as u8);
@@ -869,6 +996,20 @@ impl Source {
                     bytes.push(((addr & 0x00FF0000) >> 16) as u8);
                     bytes.push(((addr & 0x0000FF00) >> 8) as u8);
                     bytes.push((addr & 0x000000FF) as u8);
+                } else if t == "bool" {
+                    bytes.push(0x2A);
+
+                    bytes.push(((addr & 0xFF000000) >> 24) as u8);
+                    bytes.push(((addr & 0x00FF0000) >> 16) as u8);
+                    bytes.push(((addr & 0x0000FF00) >> 8) as u8);
+                    bytes.push((addr & 0x000000FF) as u8);
+                } else if t == "char" {
+                    bytes.push(0x2E);
+
+                    bytes.push(((addr & 0xFF000000) >> 24) as u8);
+                    bytes.push(((addr & 0x00FF0000) >> 16) as u8);
+                    bytes.push(((addr & 0x0000FF00) >> 8) as u8);
+                    bytes.push((addr & 0x000000FF) as u8);
                 }
             }
             SyntaxTreeNode::DeclareVar => {
@@ -902,6 +1043,20 @@ impl Source {
                     bytes.push(((addr & 0x00FF0000) >> 16) as u8);
                     bytes.push(((addr & 0x0000FF00) >> 8) as u8);
                     bytes.push((addr & 0x000000FF) as u8);
+                } else if t == "bool" {
+                    bytes.push(0x2A);
+
+                    bytes.push(((addr & 0xFF000000) >> 24) as u8);
+                    bytes.push(((addr & 0x00FF0000) >> 16) as u8);
+                    bytes.push(((addr & 0x0000FF00) >> 8) as u8);
+                    bytes.push((addr & 0x000000FF) as u8);
+                } else if t == "char" {
+                    bytes.push(0x2E);
+
+                    bytes.push(((addr & 0xFF000000) >> 24) as u8);
+                    bytes.push(((addr & 0x00FF0000) >> 16) as u8);
+                    bytes.push(((addr & 0x0000FF00) >> 8) as u8);
+                    bytes.push((addr & 0x000000FF) as u8);
                 }
             }
             SyntaxTreeNode::Assign => {
@@ -930,6 +1085,20 @@ impl Source {
                     bytes.push((addr & 0x000000FF) as u8);
                 } else if t == "float" {
                     bytes.push(0x25);
+
+                    bytes.push(((addr & 0xFF000000) >> 24) as u8);
+                    bytes.push(((addr & 0x00FF0000) >> 16) as u8);
+                    bytes.push(((addr & 0x0000FF00) >> 8) as u8);
+                    bytes.push((addr & 0x000000FF) as u8);
+                } else if t == "bool" {
+                    bytes.push(0x2A);
+
+                    bytes.push(((addr & 0xFF000000) >> 24) as u8);
+                    bytes.push(((addr & 0x00FF0000) >> 16) as u8);
+                    bytes.push(((addr & 0x0000FF00) >> 8) as u8);
+                    bytes.push((addr & 0x000000FF) as u8);
+                } else if t == "char" {
+                    bytes.push(0x2E);
 
                     bytes.push(((addr & 0xFF000000) >> 24) as u8);
                     bytes.push(((addr & 0x00FF0000) >> 16) as u8);
@@ -1107,6 +1276,40 @@ impl Source {
         ast: AbstractSyntaxTree,
     ) {
         let children = ast.children.clone();
+
+        match ast.node {
+            SyntaxTreeNode::AndOp
+            | SyntaxTreeNode::OrOp
+            | SyntaxTreeNode::CompEq
+            | SyntaxTreeNode::CompNeq
+            | SyntaxTreeNode::CompLess
+            | SyntaxTreeNode::CompLeq
+            | SyntaxTreeNode::CompGreater
+            | SyntaxTreeNode::CompGeq
+            | SyntaxTreeNode::AddOp
+            | SyntaxTreeNode::SubOp
+            | SyntaxTreeNode::MulOp
+            | SyntaxTreeNode::DivOp => {
+                Self::generate_expr_bytecode(
+                    bytes,
+                    functions,
+                    var_set,
+                    variable_addresses,
+                    calls,
+                    children[0].clone(),
+                );
+                Self::generate_expr_bytecode(
+                    bytes,
+                    functions,
+                    var_set,
+                    variable_addresses,
+                    calls,
+                    children[1].clone(),
+                );
+            }
+            _ => {}
+        }
+
         match ast.node {
             SyntaxTreeNode::FnCall => {
                 let id = match children[0].clone().node {
@@ -1146,61 +1349,12 @@ impl Source {
                 bytes[ret_loc + 3] = (ret_addr & 0x000000FF) as u8;
             }
             SyntaxTreeNode::AndOp => {
-                Self::generate_expr_bytecode(
-                    bytes,
-                    functions,
-                    var_set,
-                    variable_addresses,
-                    calls,
-                    children[0].clone(),
-                );
-                Self::generate_expr_bytecode(
-                    bytes,
-                    functions,
-                    var_set,
-                    variable_addresses,
-                    calls,
-                    children[1].clone(),
-                );
                 bytes.push(0x58);
             }
             SyntaxTreeNode::OrOp => {
-                Self::generate_expr_bytecode(
-                    bytes,
-                    functions,
-                    var_set,
-                    variable_addresses,
-                    calls,
-                    children[0].clone(),
-                );
-                Self::generate_expr_bytecode(
-                    bytes,
-                    functions,
-                    var_set,
-                    variable_addresses,
-                    calls,
-                    children[1].clone(),
-                );
                 bytes.push(0x59);
             }
             SyntaxTreeNode::CompEq => {
-                Self::generate_expr_bytecode(
-                    bytes,
-                    functions,
-                    var_set,
-                    variable_addresses,
-                    calls,
-                    children[0].clone(),
-                );
-                Self::generate_expr_bytecode(
-                    bytes,
-                    functions,
-                    var_set,
-                    variable_addresses,
-                    calls,
-                    children[1].clone(),
-                );
-
                 let t = Self::get_type(functions.clone(), var_set.clone(), children[0].clone())
                     .expect("could not get type");
 
@@ -1208,26 +1362,11 @@ impl Source {
                     bytes.push(0x52);
                 } else if t == "float" {
                     bytes.push(0x5C);
+                } else if t == "bool" {
+                    bytes.push(0x62);
                 }
             }
             SyntaxTreeNode::CompNeq => {
-                Self::generate_expr_bytecode(
-                    bytes,
-                    functions,
-                    var_set,
-                    variable_addresses,
-                    calls,
-                    children[0].clone(),
-                );
-                Self::generate_expr_bytecode(
-                    bytes,
-                    functions,
-                    var_set,
-                    variable_addresses,
-                    calls,
-                    children[1].clone(),
-                );
-
                 let t = Self::get_type(functions.clone(), var_set.clone(), children[0].clone())
                     .expect("could not get type");
 
@@ -1235,26 +1374,11 @@ impl Source {
                     bytes.push(0x53);
                 } else if t == "float" {
                     bytes.push(0x5D);
+                } else if t == "bool" {
+                    bytes.push(0x63);
                 }
             }
             SyntaxTreeNode::CompLess => {
-                Self::generate_expr_bytecode(
-                    bytes,
-                    functions,
-                    var_set,
-                    variable_addresses,
-                    calls,
-                    children[0].clone(),
-                );
-                Self::generate_expr_bytecode(
-                    bytes,
-                    functions,
-                    var_set,
-                    variable_addresses,
-                    calls,
-                    children[1].clone(),
-                );
-
                 let t = Self::get_type(functions.clone(), var_set.clone(), children[0].clone())
                     .expect("could not get type");
 
@@ -1265,23 +1389,6 @@ impl Source {
                 }
             }
             SyntaxTreeNode::CompGreater => {
-                Self::generate_expr_bytecode(
-                    bytes,
-                    functions,
-                    var_set,
-                    variable_addresses,
-                    calls,
-                    children[0].clone(),
-                );
-                Self::generate_expr_bytecode(
-                    bytes,
-                    functions,
-                    var_set,
-                    variable_addresses,
-                    calls,
-                    children[1].clone(),
-                );
-
                 let t = Self::get_type(functions.clone(), var_set.clone(), children[0].clone())
                     .expect("could not get type");
 
@@ -1292,23 +1399,6 @@ impl Source {
                 }
             }
             SyntaxTreeNode::CompLeq => {
-                Self::generate_expr_bytecode(
-                    bytes,
-                    functions,
-                    var_set,
-                    variable_addresses,
-                    calls,
-                    children[0].clone(),
-                );
-                Self::generate_expr_bytecode(
-                    bytes,
-                    functions,
-                    var_set,
-                    variable_addresses,
-                    calls,
-                    children[1].clone(),
-                );
-
                 let t = Self::get_type(functions.clone(), var_set.clone(), children[0].clone())
                     .expect("could not get type");
 
@@ -1319,23 +1409,6 @@ impl Source {
                 }
             }
             SyntaxTreeNode::CompGeq => {
-                Self::generate_expr_bytecode(
-                    bytes,
-                    functions,
-                    var_set,
-                    variable_addresses,
-                    calls,
-                    children[0].clone(),
-                );
-                Self::generate_expr_bytecode(
-                    bytes,
-                    functions,
-                    var_set,
-                    variable_addresses,
-                    calls,
-                    children[1].clone(),
-                );
-
                 let t = Self::get_type(functions.clone(), var_set.clone(), children[0].clone())
                     .expect("could not get type");
 
@@ -1346,23 +1419,6 @@ impl Source {
                 }
             }
             SyntaxTreeNode::AddOp => {
-                Self::generate_expr_bytecode(
-                    bytes,
-                    functions,
-                    var_set,
-                    variable_addresses,
-                    calls,
-                    children[0].clone(),
-                );
-                Self::generate_expr_bytecode(
-                    bytes,
-                    functions,
-                    var_set,
-                    variable_addresses,
-                    calls,
-                    children[1].clone(),
-                );
-
                 let t = Self::get_type(functions.clone(), var_set.clone(), ast.clone())
                     .expect("could not get type");
 
@@ -1370,26 +1426,11 @@ impl Source {
                     bytes.push(0x30);
                 } else if t == "float" {
                     bytes.push(0x31);
+                } else if t == "char" {
+                    bytes.push(0x38);
                 }
             }
             SyntaxTreeNode::SubOp => {
-                Self::generate_expr_bytecode(
-                    bytes,
-                    functions,
-                    var_set,
-                    variable_addresses,
-                    calls,
-                    children[0].clone(),
-                );
-                Self::generate_expr_bytecode(
-                    bytes,
-                    functions,
-                    var_set,
-                    variable_addresses,
-                    calls,
-                    children[1].clone(),
-                );
-
                 let t = Self::get_type(functions.clone(), var_set.clone(), ast.clone())
                     .expect("could not get type");
 
@@ -1397,26 +1438,11 @@ impl Source {
                     bytes.push(0x32);
                 } else if t == "float" {
                     bytes.push(0x33);
+                } else if t == "char" {
+                    bytes.push(0x39);
                 }
             }
             SyntaxTreeNode::MulOp => {
-                Self::generate_expr_bytecode(
-                    bytes,
-                    functions,
-                    var_set,
-                    variable_addresses,
-                    calls,
-                    children[0].clone(),
-                );
-                Self::generate_expr_bytecode(
-                    bytes,
-                    functions,
-                    var_set,
-                    variable_addresses,
-                    calls,
-                    children[1].clone(),
-                );
-
                 let t = Self::get_type(functions.clone(), var_set.clone(), ast.clone())
                     .expect("could not get type");
 
@@ -1427,23 +1453,6 @@ impl Source {
                 }
             }
             SyntaxTreeNode::DivOp => {
-                Self::generate_expr_bytecode(
-                    bytes,
-                    functions,
-                    var_set,
-                    variable_addresses,
-                    calls,
-                    children[0].clone(),
-                );
-                Self::generate_expr_bytecode(
-                    bytes,
-                    functions,
-                    var_set,
-                    variable_addresses,
-                    calls,
-                    children[1].clone(),
-                );
-
                 let t = Self::get_type(functions.clone(), var_set.clone(), ast.clone())
                     .expect("could not get type");
 
@@ -1473,6 +1482,21 @@ impl Source {
                 bytes.push(b[2]);
                 bytes.push(b[3]);
             }
+            SyntaxTreeNode::True => {
+                bytes.push(0x14);
+
+                bytes.push(0x1);
+            }
+            SyntaxTreeNode::False => {
+                bytes.push(0x14);
+
+                bytes.push(0x0);
+            }
+            SyntaxTreeNode::Character(c) => {
+                bytes.push(0x15);
+
+                bytes.push(c as u8);
+            }
             SyntaxTreeNode::Identifier(id) => {
                 let (t, addr) = variable_addresses[&id].clone();
 
@@ -1485,6 +1509,20 @@ impl Source {
                     bytes.push((addr & 0x000000FF) as u8);
                 } else if t == "float" {
                     bytes.push(0x23);
+
+                    bytes.push(((addr & 0xFF000000) >> 24) as u8);
+                    bytes.push(((addr & 0x00FF0000) >> 16) as u8);
+                    bytes.push(((addr & 0x0000FF00) >> 8) as u8);
+                    bytes.push((addr & 0x000000FF) as u8);
+                } else if t == "bool" {
+                    bytes.push(0x29);
+
+                    bytes.push(((addr & 0xFF000000) >> 24) as u8);
+                    bytes.push(((addr & 0x00FF0000) >> 16) as u8);
+                    bytes.push(((addr & 0x0000FF00) >> 8) as u8);
+                    bytes.push((addr & 0x000000FF) as u8);
+                } else if t == "char" {
+                    bytes.push(0x2D);
 
                     bytes.push(((addr & 0xFF000000) >> 24) as u8);
                     bytes.push(((addr & 0x00FF0000) >> 16) as u8);

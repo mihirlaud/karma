@@ -5,6 +5,8 @@
 # pushf     -- 0x11 operand
 # pop       -- 0x12 
 # pushsp    -- 0x13 operand
+# pushb     -- 0x14 operand
+# pushc     -- 0x15 operand
 
 # memory management
 # decli     -- 0x20 operand
@@ -15,6 +17,14 @@
 # storf     -- 0x25 operand
 # dstri     -- 0x26 operand
 # dstrf     -- 0x27 operand
+# declb     -- 0x28 operand
+# loadb     -- 0x29 operand
+# storb     -- 0x2A operand
+# dstrb     -- 0x2B operand
+# declc     -- 0x2C operand
+# loadc     -- 0x2D operand
+# storc     -- 0x2E operand
+# dstrc     -- 0x2F operand
 
 # arithmetic
 # addi      -- 0x30
@@ -25,6 +35,8 @@
 # mulf      -- 0x35
 # divi      -- 0x36
 # divf      -- 0x37
+# addc      -- 0x38
+# subc      -- 0x39
 
 # control flow
 # ifTrue    -- 0x50 operand
@@ -45,6 +57,8 @@
 # leqf      -- 0x5F
 # grtf      -- 0x60
 # geqf      -- 0x61
+# eqb       -- 0x62
+# neqb      -- 0x63
 
 # var a = b;
 #
