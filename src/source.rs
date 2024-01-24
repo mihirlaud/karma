@@ -749,76 +749,35 @@ impl Source {
 
                     for (var_id, var_type) in var_set.clone() {
                         variable_addresses.insert(var_id, (var_type.clone(), addr));
-                        if var_type == "int" {
-                            bytes.push(0x20);
+                        bytes.push(match var_type.as_str() {
+                            "int" => 0x20,
+                            "float" => 0x21,
+                            "bool" => 0x28,
+                            "char" => 0x2C,
+                            _ => 0x0,
+                        });
 
-                            bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                            bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                            bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                            bytes.push((addr & 0x000000FF) as u8);
+                        let b = addr.to_be_bytes();
+                        bytes.extend_from_slice(&b);
 
-                            addr += 4;
-                        } else if var_type == "float" {
-                            bytes.push(0x21);
-
-                            bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                            bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                            bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                            bytes.push((addr & 0x000000FF) as u8);
-
-                            addr += 4;
-                        } else if var_type == "bool" {
-                            bytes.push(0x28);
-
-                            bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                            bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                            bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                            bytes.push((addr & 0x000000FF) as u8);
-
-                            addr += 1;
-                        } else if var_type == "char" {
-                            bytes.push(0x2C);
-
-                            bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                            bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                            bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                            bytes.push((addr & 0x000000FF) as u8);
-
-                            addr += 1;
-                        }
+                        addr += match var_type.as_str() {
+                            "int" | "float" => 4,
+                            "bool" | "char" => 1,
+                            _ => 0,
+                        };
                     }
 
                     for (param_id, param_type) in params.clone() {
                         let addr = variable_addresses[&param_id].1;
-                        if param_type == "int" {
-                            bytes.push(0x24);
-
-                            bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                            bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                            bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                            bytes.push((addr & 0x000000FF) as u8);
-                        } else if param_type == "float" {
-                            bytes.push(0x25);
-
-                            bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                            bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                            bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                            bytes.push((addr & 0x000000FF) as u8);
-                        } else if param_type == "bool" {
-                            bytes.push(0x2A);
-
-                            bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                            bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                            bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                            bytes.push((addr & 0x000000FF) as u8);
-                        } else if param_type == "char" {
-                            bytes.push(0x2E);
-
-                            bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                            bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                            bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                            bytes.push((addr & 0x000000FF) as u8);
-                        }
+                        bytes.push(match param_type.as_str() {
+                            "int" => 0x24,
+                            "float" => 0x25,
+                            "bool" => 0x2A,
+                            "char" => 0x2E,
+                            _ => 0x0,
+                        });
+                        let b = addr.to_be_bytes();
+                        bytes.extend_from_slice(&b);
                     }
                     Self::generate_function_bytecode(
                         &mut bytes,
@@ -842,76 +801,35 @@ impl Source {
 
                         for (var_id, var_type) in var_set.clone() {
                             variable_addresses.insert(var_id, (var_type.clone(), addr));
-                            if var_type == "int" {
-                                bytes.push(0x20);
+                            bytes.push(match var_type.as_str() {
+                                "int" => 0x20,
+                                "float" => 0x21,
+                                "bool" => 0x28,
+                                "char" => 0x2C,
+                                _ => 0x0,
+                            });
 
-                                bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                                bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                                bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                                bytes.push((addr & 0x000000FF) as u8);
+                            let b = addr.to_be_bytes();
+                            bytes.extend_from_slice(&b);
 
-                                addr += 4;
-                            } else if var_type == "float" {
-                                bytes.push(0x21);
-
-                                bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                                bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                                bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                                bytes.push((addr & 0x000000FF) as u8);
-
-                                addr += 4;
-                            } else if var_type == "bool" {
-                                bytes.push(0x28);
-
-                                bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                                bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                                bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                                bytes.push((addr & 0x000000FF) as u8);
-
-                                addr += 1;
-                            } else if var_type == "char" {
-                                bytes.push(0x2C);
-
-                                bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                                bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                                bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                                bytes.push((addr & 0x000000FF) as u8);
-
-                                addr += 1;
-                            }
+                            addr += match var_type.as_str() {
+                                "int" | "float" => 4,
+                                "bool" | "char" => 1,
+                                _ => 0,
+                            };
                         }
 
                         for (param_id, param_type) in params.clone() {
                             let addr = variable_addresses[&param_id].1;
-                            if param_type == "int" {
-                                bytes.push(0x24);
-
-                                bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                                bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                                bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                                bytes.push((addr & 0x000000FF) as u8);
-                            } else if param_type == "float" {
-                                bytes.push(0x25);
-
-                                bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                                bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                                bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                                bytes.push((addr & 0x000000FF) as u8);
-                            } else if param_type == "bool" {
-                                bytes.push(0x2A);
-
-                                bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                                bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                                bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                                bytes.push((addr & 0x000000FF) as u8);
-                            } else if param_type == "char" {
-                                bytes.push(0x2E);
-
-                                bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                                bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                                bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                                bytes.push((addr & 0x000000FF) as u8);
-                            }
+                            bytes.push(match param_type.as_str() {
+                                "int" => 0x24,
+                                "float" => 0x25,
+                                "bool" => 0x2A,
+                                "char" => 0x2E,
+                                _ => 0x0,
+                            });
+                            let b = addr.to_be_bytes();
+                            bytes.extend_from_slice(&b);
                         }
                         Self::generate_function_bytecode(
                             &mut bytes,
@@ -929,10 +847,11 @@ impl Source {
             for (call_loc, function_name) in calls {
                 let function_location = function_locations[&function_name] as u32;
 
-                bytes[call_loc] = ((function_location & 0xFF000000) >> 24) as u8;
-                bytes[call_loc + 1] = ((function_location & 0x00FF0000) >> 16) as u8;
-                bytes[call_loc + 2] = ((function_location & 0x0000FF00) >> 8) as u8;
-                bytes[call_loc + 3] = (function_location & 0x000000FF) as u8;
+                let b = function_location.to_be_bytes();
+
+                for (i, byte) in b.iter().enumerate() {
+                    bytes[call_loc + i] = *byte;
+                }
             }
 
             file.write(&bytes)?;
@@ -981,36 +900,16 @@ impl Source {
                 };
 
                 let (t, addr) = variable_addresses[&id].clone();
+                bytes.push(match t.as_str() {
+                    "int" => 0x24,
+                    "float" => 0x25,
+                    "bool" => 0x2A,
+                    "char" => 0x2E,
+                    _ => 0x0,
+                });
 
-                if t == "int" {
-                    bytes.push(0x24);
-
-                    bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                    bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                    bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                    bytes.push((addr & 0x000000FF) as u8);
-                } else if t == "float" {
-                    bytes.push(0x25);
-
-                    bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                    bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                    bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                    bytes.push((addr & 0x000000FF) as u8);
-                } else if t == "bool" {
-                    bytes.push(0x2A);
-
-                    bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                    bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                    bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                    bytes.push((addr & 0x000000FF) as u8);
-                } else if t == "char" {
-                    bytes.push(0x2E);
-
-                    bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                    bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                    bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                    bytes.push((addr & 0x000000FF) as u8);
-                }
+                let b = addr.to_be_bytes();
+                bytes.extend_from_slice(&b);
             }
             SyntaxTreeNode::DeclareVar => {
                 Self::generate_expr_bytecode(
@@ -1028,36 +927,15 @@ impl Source {
                 };
 
                 let (t, addr) = variable_addresses[&id].clone();
-
-                if t == "int" {
-                    bytes.push(0x24);
-
-                    bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                    bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                    bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                    bytes.push((addr & 0x000000FF) as u8);
-                } else if t == "float" {
-                    bytes.push(0x25);
-
-                    bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                    bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                    bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                    bytes.push((addr & 0x000000FF) as u8);
-                } else if t == "bool" {
-                    bytes.push(0x2A);
-
-                    bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                    bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                    bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                    bytes.push((addr & 0x000000FF) as u8);
-                } else if t == "char" {
-                    bytes.push(0x2E);
-
-                    bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                    bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                    bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                    bytes.push((addr & 0x000000FF) as u8);
-                }
+                bytes.push(match t.as_str() {
+                    "int" => 0x24,
+                    "float" => 0x25,
+                    "bool" => 0x2A,
+                    "char" => 0x2E,
+                    _ => 0x0,
+                });
+                let b = addr.to_be_bytes();
+                bytes.extend_from_slice(&b);
             }
             SyntaxTreeNode::Assign => {
                 Self::generate_expr_bytecode(
@@ -1075,36 +953,15 @@ impl Source {
                 };
 
                 let (t, addr) = variable_addresses[&id].clone();
-
-                if t == "int" {
-                    bytes.push(0x24);
-
-                    bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                    bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                    bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                    bytes.push((addr & 0x000000FF) as u8);
-                } else if t == "float" {
-                    bytes.push(0x25);
-
-                    bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                    bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                    bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                    bytes.push((addr & 0x000000FF) as u8);
-                } else if t == "bool" {
-                    bytes.push(0x2A);
-
-                    bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                    bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                    bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                    bytes.push((addr & 0x000000FF) as u8);
-                } else if t == "char" {
-                    bytes.push(0x2E);
-
-                    bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                    bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                    bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                    bytes.push((addr & 0x000000FF) as u8);
-                }
+                bytes.push(match t.as_str() {
+                    "int" => 0x24,
+                    "float" => 0x25,
+                    "bool" => 0x2A,
+                    "char" => 0x2E,
+                    _ => 0x0,
+                });
+                let b = addr.to_be_bytes();
+                bytes.extend_from_slice(&b);
             }
             SyntaxTreeNode::FnCall => {
                 let id = match children[0].clone().node {
@@ -1113,10 +970,7 @@ impl Source {
                 };
 
                 bytes.push(0x10);
-                bytes.push(0x0);
-                bytes.push(0x0);
-                bytes.push(0x0);
-                bytes.push(0x0);
+                bytes.extend_from_slice(&[0x0, 0x0, 0x0, 0x0]);
 
                 let ret_loc = bytes.len() - 4;
 
@@ -1130,18 +984,16 @@ impl Source {
                 );
 
                 bytes.push(0x5A);
-                bytes.push(0x00);
-                bytes.push(0x00);
-                bytes.push(0x00);
-                bytes.push(0x00);
+                bytes.extend_from_slice(&[0x0, 0x0, 0x0, 0x0]);
 
                 calls.push((bytes.len() - 4, id.clone()));
 
                 let ret_addr = bytes.len() as u32;
-                bytes[ret_loc] = ((ret_addr & 0xFF000000) >> 24) as u8;
-                bytes[ret_loc + 1] = ((ret_addr & 0x00FF0000) >> 16) as u8;
-                bytes[ret_loc + 2] = ((ret_addr & 0x0000FF00) >> 8) as u8;
-                bytes[ret_loc + 3] = (ret_addr & 0x000000FF) as u8;
+                let b = ret_addr.to_be_bytes();
+
+                for (i, byte) in b.iter().enumerate() {
+                    bytes[ret_loc + i] = *byte;
+                }
             }
             SyntaxTreeNode::WhileLoop => {
                 let return_to = bytes.len() as u32;
@@ -1156,10 +1008,7 @@ impl Source {
                 );
 
                 bytes.push(0x51);
-                bytes.push(0x00);
-                bytes.push(0x00);
-                bytes.push(0x00);
-                bytes.push(0x00);
+                bytes.extend_from_slice(&[0x0, 0x0, 0x0, 0x0]);
 
                 let jump_loc = bytes.len() - 4;
 
@@ -1174,16 +1023,15 @@ impl Source {
 
                 bytes.push(0x5A);
 
-                bytes.push(((return_to & 0xFF000000) >> 24) as u8);
-                bytes.push(((return_to & 0x00FF0000) >> 16) as u8);
-                bytes.push(((return_to & 0x0000FF00) >> 8) as u8);
-                bytes.push((return_to & 0x000000FF) as u8);
+                let b = return_to.to_be_bytes();
+                bytes.extend_from_slice(&b);
 
                 let jump_addr = bytes.len() as u32;
-                bytes[jump_loc] = ((jump_addr & 0xFF000000) >> 24) as u8;
-                bytes[jump_loc + 1] = ((jump_addr & 0x00FF0000) >> 16) as u8;
-                bytes[jump_loc + 2] = ((jump_addr & 0x0000FF00) >> 8) as u8;
-                bytes[jump_loc + 3] = (jump_addr & 0x000000FF) as u8;
+                let b = jump_addr.to_be_bytes();
+
+                for (i, byte) in b.iter().enumerate() {
+                    bytes[jump_loc + i] = *byte;
+                }
             }
             SyntaxTreeNode::IfStmt => {
                 Self::generate_expr_bytecode(
@@ -1196,10 +1044,7 @@ impl Source {
                 );
 
                 bytes.push(0x51);
-                bytes.push(0x00);
-                bytes.push(0x00);
-                bytes.push(0x00);
-                bytes.push(0x00);
+                bytes.extend_from_slice(&[0x0, 0x0, 0x0, 0x0]);
 
                 let jump_loc = bytes.len() - 4;
 
@@ -1213,16 +1058,14 @@ impl Source {
                 );
 
                 bytes.push(0x5A);
-                bytes.push(0x00);
-                bytes.push(0x00);
-                bytes.push(0x00);
-                bytes.push(0x00);
+                bytes.extend_from_slice(&[0x0, 0x0, 0x0, 0x0]);
 
                 let jump_addr = bytes.len() as u32;
-                bytes[jump_loc] = ((jump_addr & 0xFF000000) >> 24) as u8;
-                bytes[jump_loc + 1] = ((jump_addr & 0x00FF0000) >> 16) as u8;
-                bytes[jump_loc + 2] = ((jump_addr & 0x0000FF00) >> 8) as u8;
-                bytes[jump_loc + 3] = (jump_addr & 0x000000FF) as u8;
+                let b = jump_addr.to_be_bytes();
+
+                for (i, byte) in b.iter().enumerate() {
+                    bytes[jump_loc + i] = *byte;
+                }
 
                 let jump_loc = bytes.len() - 4;
 
@@ -1236,10 +1079,11 @@ impl Source {
                 );
 
                 let jump_addr = bytes.len() as u32;
-                bytes[jump_loc] = ((jump_addr & 0xFF000000) >> 24) as u8;
-                bytes[jump_loc + 1] = ((jump_addr & 0x00FF0000) >> 16) as u8;
-                bytes[jump_loc + 2] = ((jump_addr & 0x0000FF00) >> 8) as u8;
-                bytes[jump_loc + 3] = (jump_addr & 0x000000FF) as u8;
+                let b = jump_addr.to_be_bytes();
+
+                for (i, byte) in b.iter().enumerate() {
+                    bytes[jump_loc + i] = *byte;
+                }
             }
             SyntaxTreeNode::ReturnValue => {
                 Self::generate_expr_bytecode(
@@ -1318,10 +1162,7 @@ impl Source {
                 };
 
                 bytes.push(0x10);
-                bytes.push(0x0);
-                bytes.push(0x0);
-                bytes.push(0x0);
-                bytes.push(0x0);
+                bytes.extend_from_slice(&[0x0, 0x0, 0x0, 0x0]);
 
                 let ret_loc = bytes.len() - 4;
 
@@ -1335,18 +1176,16 @@ impl Source {
                 );
 
                 bytes.push(0x5A);
-                bytes.push(0x00);
-                bytes.push(0x00);
-                bytes.push(0x00);
-                bytes.push(0x00);
+                bytes.extend_from_slice(&[0x0, 0x0, 0x0, 0x0]);
 
                 calls.push((bytes.len() - 4, id.clone()));
 
                 let ret_addr = bytes.len() as u32;
-                bytes[ret_loc] = ((ret_addr & 0xFF000000) >> 24) as u8;
-                bytes[ret_loc + 1] = ((ret_addr & 0x00FF0000) >> 16) as u8;
-                bytes[ret_loc + 2] = ((ret_addr & 0x0000FF00) >> 8) as u8;
-                bytes[ret_loc + 3] = (ret_addr & 0x000000FF) as u8;
+                let b = ret_addr.to_be_bytes();
+
+                for (i, byte) in b.iter().enumerate() {
+                    bytes[ret_loc + i] = *byte;
+                }
             }
             SyntaxTreeNode::AndOp => {
                 bytes.push(0x58);
@@ -1358,177 +1197,135 @@ impl Source {
                 let t = Self::get_type(functions.clone(), var_set.clone(), children[0].clone())
                     .expect("could not get type");
 
-                if t == "int" {
-                    bytes.push(0x52);
-                } else if t == "float" {
-                    bytes.push(0x5C);
-                } else if t == "bool" {
-                    bytes.push(0x62);
-                }
+                bytes.push(match t.as_str() {
+                    "int" => 0x52,
+                    "float" => 0x5C,
+                    "bool" => 0x62,
+                    _ => 0x0,
+                });
             }
             SyntaxTreeNode::CompNeq => {
                 let t = Self::get_type(functions.clone(), var_set.clone(), children[0].clone())
                     .expect("could not get type");
 
-                if t == "int" {
-                    bytes.push(0x53);
-                } else if t == "float" {
-                    bytes.push(0x5D);
-                } else if t == "bool" {
-                    bytes.push(0x63);
-                }
+                bytes.push(match t.as_str() {
+                    "int" => 0x53,
+                    "float" => 0x5D,
+                    "bool" => 0x63,
+                    _ => 0x0,
+                });
             }
             SyntaxTreeNode::CompLess => {
                 let t = Self::get_type(functions.clone(), var_set.clone(), children[0].clone())
                     .expect("could not get type");
 
-                if t == "int" {
-                    bytes.push(0x54);
-                } else if t == "float" {
-                    bytes.push(0x5E);
-                }
+                bytes.push(match t.as_str() {
+                    "int" => 0x54,
+                    "float" => 0x5E,
+                    _ => 0x0,
+                });
             }
             SyntaxTreeNode::CompGreater => {
                 let t = Self::get_type(functions.clone(), var_set.clone(), children[0].clone())
                     .expect("could not get type");
 
-                if t == "int" {
-                    bytes.push(0x56);
-                } else if t == "float" {
-                    bytes.push(0x60);
-                }
+                bytes.push(match t.as_str() {
+                    "int" => 0x56,
+                    "float" => 0x60,
+                    _ => 0x0,
+                });
             }
             SyntaxTreeNode::CompLeq => {
                 let t = Self::get_type(functions.clone(), var_set.clone(), children[0].clone())
                     .expect("could not get type");
 
-                if t == "int" {
-                    bytes.push(0x55);
-                } else if t == "float" {
-                    bytes.push(0x5F);
-                }
+                bytes.push(match t.as_str() {
+                    "int" => 0x55,
+                    "float" => 0x5F,
+                    _ => 0x0,
+                });
             }
             SyntaxTreeNode::CompGeq => {
                 let t = Self::get_type(functions.clone(), var_set.clone(), children[0].clone())
                     .expect("could not get type");
-
-                if t == "int" {
-                    bytes.push(0x57);
-                } else if t == "float" {
-                    bytes.push(0x61);
-                }
+                bytes.push(match t.as_str() {
+                    "int" => 0x57,
+                    "float" => 0x61,
+                    _ => 0x0,
+                });
             }
             SyntaxTreeNode::AddOp => {
                 let t = Self::get_type(functions.clone(), var_set.clone(), ast.clone())
                     .expect("could not get type");
 
-                if t == "int" {
-                    bytes.push(0x30);
-                } else if t == "float" {
-                    bytes.push(0x31);
-                } else if t == "char" {
-                    bytes.push(0x38);
-                }
+                bytes.push(match t.as_str() {
+                    "int" => 0x30,
+                    "float" => 0x31,
+                    "char" => 0x38,
+                    _ => 0x0,
+                });
             }
             SyntaxTreeNode::SubOp => {
                 let t = Self::get_type(functions.clone(), var_set.clone(), ast.clone())
                     .expect("could not get type");
-
-                if t == "int" {
-                    bytes.push(0x32);
-                } else if t == "float" {
-                    bytes.push(0x33);
-                } else if t == "char" {
-                    bytes.push(0x39);
-                }
+                bytes.push(match t.as_str() {
+                    "int" => 0x32,
+                    "float" => 0x33,
+                    "char" => 0x39,
+                    _ => 0x0,
+                });
             }
             SyntaxTreeNode::MulOp => {
                 let t = Self::get_type(functions.clone(), var_set.clone(), ast.clone())
                     .expect("could not get type");
-
-                if t == "int" {
-                    bytes.push(0x34);
-                } else if t == "float" {
-                    bytes.push(0x35);
-                }
+                bytes.push(match t.as_str() {
+                    "int" => 0x34,
+                    "float" => 0x35,
+                    _ => 0x0,
+                });
             }
             SyntaxTreeNode::DivOp => {
                 let t = Self::get_type(functions.clone(), var_set.clone(), ast.clone())
                     .expect("could not get type");
-
-                if t == "int" {
-                    bytes.push(0x36);
-                } else if t == "float" {
-                    bytes.push(0x37);
-                }
+                bytes.push(match t.as_str() {
+                    "int" => 0x36,
+                    "float" => 0x37,
+                    _ => 0x0,
+                });
             }
             SyntaxTreeNode::Integer(num) => {
                 bytes.push(0x10);
 
                 let b = num.to_be_bytes();
-
-                bytes.push(b[0]);
-                bytes.push(b[1]);
-                bytes.push(b[2]);
-                bytes.push(b[3]);
+                bytes.extend_from_slice(&b);
             }
             SyntaxTreeNode::Float(num) => {
                 bytes.push(0x11);
 
                 let b = num.to_be_bytes();
-
-                bytes.push(b[0]);
-                bytes.push(b[1]);
-                bytes.push(b[2]);
-                bytes.push(b[3]);
+                bytes.extend_from_slice(&b);
             }
             SyntaxTreeNode::True => {
-                bytes.push(0x14);
-
-                bytes.push(0x1);
+                bytes.extend_from_slice(&[0x14, 0x1]);
             }
             SyntaxTreeNode::False => {
-                bytes.push(0x14);
-
-                bytes.push(0x0);
+                bytes.extend_from_slice(&[0x14, 0x0]);
             }
             SyntaxTreeNode::Character(c) => {
-                bytes.push(0x15);
-
-                bytes.push(c as u8);
+                bytes.extend_from_slice(&[0x15, c as u8]);
             }
             SyntaxTreeNode::Identifier(id) => {
                 let (t, addr) = variable_addresses[&id].clone();
+                bytes.push(match t.as_str() {
+                    "int" => 0x22,
+                    "float" => 0x23,
+                    "bool" => 0x29,
+                    "char" => 0x2D,
+                    _ => 0x0,
+                });
 
-                if t == "int" {
-                    bytes.push(0x22);
-
-                    bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                    bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                    bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                    bytes.push((addr & 0x000000FF) as u8);
-                } else if t == "float" {
-                    bytes.push(0x23);
-
-                    bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                    bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                    bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                    bytes.push((addr & 0x000000FF) as u8);
-                } else if t == "bool" {
-                    bytes.push(0x29);
-
-                    bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                    bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                    bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                    bytes.push((addr & 0x000000FF) as u8);
-                } else if t == "char" {
-                    bytes.push(0x2D);
-
-                    bytes.push(((addr & 0xFF000000) >> 24) as u8);
-                    bytes.push(((addr & 0x00FF0000) >> 16) as u8);
-                    bytes.push(((addr & 0x0000FF00) >> 8) as u8);
-                    bytes.push((addr & 0x000000FF) as u8);
-                }
+                let b = addr.to_be_bytes();
+                bytes.extend_from_slice(&b);
             }
             _ => {
                 for child in children {
