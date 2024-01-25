@@ -1,7 +1,9 @@
 node HelloKarma {
     fn main() -> int {
-        var a: char = 'a' + 'b' - 'c';
+        var a: int = 0;
 
-        return 0;
+        print_int(a);
+
+        return a;
     }
 }

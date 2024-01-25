@@ -60,6 +60,13 @@
 # eqb       -- 0x62
 # neqb      -- 0x63
 
+# io
+# prnti     -- 0x90
+# prntf     -- 0x91
+# prntb     -- 0x92
+# prntc     -- 0x93
+# input     -- 0x94
+
 # var a = b;
 #
 # declare a

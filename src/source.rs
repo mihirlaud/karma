@@ -405,6 +405,14 @@ impl Source {
                     _ => "".to_string(),
                 };
 
+                if id == "print_int"
+                    || id == "print_float"
+                    || id == "print_bool"
+                    || id == "print_char"
+                {
+                    return Ok(());
+                }
+
                 for elem in stack {
                     if elem.clone() == ScopeElem::Func(id.clone()) {
                         return Ok(());
@@ -561,6 +569,14 @@ impl Source {
                             if fn_id == id && fn_params == params {
                                 return Ok(fn_type.clone());
                             }
+                        }
+
+                        if id == "print_int"
+                            || id == "print_float"
+                            || id == "print_bool"
+                            || id == "print_char"
+                        {
+                            return Ok("int".to_string());
                         }
 
                         Err(13)
@@ -790,6 +806,18 @@ impl Source {
                 }
                 _ => {}
             }
+
+            function_locations.insert("print_int".to_string(), bytes.len());
+            bytes.extend_from_slice(&[0x90, 0x10, 0x0, 0x0, 0x0, 0x0, 0x5B]);
+
+            function_locations.insert("print_float".to_string(), bytes.len());
+            bytes.extend_from_slice(&[0x91, 0x10, 0x0, 0x0, 0x0, 0x0, 0x5B]);
+
+            function_locations.insert("print_bool".to_string(), bytes.len());
+            bytes.extend_from_slice(&[0x92, 0x10, 0x0, 0x0, 0x0, 0x0, 0x5B]);
+
+            function_locations.insert("print_char".to_string(), bytes.len());
+            bytes.extend_from_slice(&[0x93, 0x10, 0x0, 0x0, 0x0, 0x0, 0x5B]);
 
             for fn_id in self.symbol_table[node_id].keys() {
                 if fn_id == "main" {
