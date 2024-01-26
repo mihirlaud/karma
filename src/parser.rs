@@ -21,6 +21,7 @@ pub enum SyntaxTreeNode {
     WhileLoop,
     IfStmt,
     Assign,
+    Index,
     FnCall,
     InputList,
     AddOp,
@@ -153,6 +154,8 @@ pub enum GrammarSymbol {
     Terminal(Token),
     Empty,
     End,
+    Array,
+    ArrLen,
     AssignOrFnCall,
     Block,
     BoolExpr,
@@ -161,6 +164,7 @@ pub enum GrammarSymbol {
     Comparison,
     Conditional,
     Conditional1,
+    CondOrArr,
     Definition,
     Expression,
     Expression1,
@@ -168,6 +172,7 @@ pub enum GrammarSymbol {
     Func,
     ID,
     IDOrFn,
+    Idx,
     InputList,
     InputRest,
     NodeBlock,
@@ -178,6 +183,7 @@ pub enum GrammarSymbol {
     Primitive,
     OptElse,
     OptIDList,
+    OptIndex,
     Param,
     ParamList,
     ParamRest,
@@ -242,11 +248,36 @@ impl Parser {
                             | GrammarSymbol::End => {
                                 return Err(format!("syntax error: {:?} {:?}", nt, token));
                             }
-                            GrammarSymbol::AssignOrFnCall => match token {
-                                Some(Token::Assign) => {
+                            GrammarSymbol::Array => match token {
+                                Some(Token::LeftBracket) => {
                                     vec![
+                                        GrammarSymbol::Terminal(Token::LeftBracket),
+                                        GrammarSymbol::InputList,
+                                        GrammarSymbol::Terminal(Token::RightBracket),
+                                    ]
+                                }
+                                _ => {
+                                    return Err(
+                                        "syntax error: expected array assignment".to_string()
+                                    )
+                                }
+                            },
+                            GrammarSymbol::ArrLen => {
+                                match token {
+                                    Some(Token::Integer(i)) => {
+                                        vec![GrammarSymbol::Terminal(Token::Integer(i))]
+                                    }
+                                    _ => {
+                                        return Err("syntax error: expected integer constant for array length".to_string());
+                                    }
+                                }
+                            }
+                            GrammarSymbol::AssignOrFnCall => match token {
+                                Some(Token::Assign) | Some(Token::LeftBracket) => {
+                                    vec![
+                                        GrammarSymbol::OptIndex,
                                         GrammarSymbol::Terminal(Token::Assign),
-                                        GrammarSymbol::Conditional,
+                                        GrammarSymbol::CondOrArr,
                                         GrammarSymbol::Terminal(Token::Semicolon),
                                     ]
                                 }
@@ -316,7 +347,10 @@ impl Parser {
                                 }
                                 Some(Token::LeftBrace)
                                 | Some(Token::LogicalOr)
-                                | Some(Token::Semicolon) => {
+                                | Some(Token::Semicolon)
+                                | Some(Token::Comma)
+                                | Some(Token::RightParen)
+                                | Some(Token::RightBracket) => {
                                     vec![]
                                 }
                                 _ => {
@@ -353,7 +387,10 @@ impl Parser {
                                 Some(Token::LogicalAnd)
                                 | Some(Token::LogicalOr)
                                 | Some(Token::LeftBrace)
-                                | Some(Token::Semicolon) => {
+                                | Some(Token::Semicolon)
+                                | Some(Token::Comma)
+                                | Some(Token::RightParen)
+                                | Some(Token::RightBracket) => {
                                     vec![]
                                 }
                                 _ => {
@@ -386,11 +423,35 @@ impl Parser {
                                         GrammarSymbol::Conditional1,
                                     ]
                                 }
-                                Some(Token::LeftBrace) | Some(Token::Semicolon) => {
+                                Some(Token::LeftBrace)
+                                | Some(Token::Semicolon)
+                                | Some(Token::Comma)
+                                | Some(Token::RightParen)
+                                | Some(Token::RightBracket) => {
                                     vec![]
                                 }
                                 _ => {
                                     return Err("syntax error: expected expression 5".to_string());
+                                }
+                            },
+                            GrammarSymbol::CondOrArr => match token {
+                                Some(Token::ID(_))
+                                | Some(Token::LeftParen)
+                                | Some(Token::Sub)
+                                | Some(Token::Integer(_))
+                                | Some(Token::Float(_))
+                                | Some(Token::Character(_))
+                                | Some(Token::True)
+                                | Some(Token::False) => {
+                                    vec![GrammarSymbol::Conditional]
+                                }
+                                Some(Token::LeftBracket) => {
+                                    vec![GrammarSymbol::Array]
+                                }
+                                _ => {
+                                    return Err(
+                                        "syntax error: expected conditional or array".to_string()
+                                    );
                                 }
                             },
                             GrammarSymbol::Definition => match token {
@@ -401,7 +462,7 @@ impl Parser {
                                         GrammarSymbol::Terminal(Token::Colon),
                                         GrammarSymbol::Type,
                                         GrammarSymbol::Terminal(Token::Assign),
-                                        GrammarSymbol::Conditional,
+                                        GrammarSymbol::CondOrArr,
                                         GrammarSymbol::Terminal(Token::Semicolon),
                                     ]
                                 }
@@ -412,7 +473,7 @@ impl Parser {
                                         GrammarSymbol::Terminal(Token::Colon),
                                         GrammarSymbol::Type,
                                         GrammarSymbol::Terminal(Token::Assign),
-                                        GrammarSymbol::Conditional,
+                                        GrammarSymbol::CondOrArr,
                                         GrammarSymbol::Terminal(Token::Semicolon),
                                     ]
                                 }
@@ -448,7 +509,9 @@ impl Parser {
                                 | Some(Token::Geq)
                                 | Some(Token::LeftBrace)
                                 | Some(Token::LogicalAnd)
-                                | Some(Token::LogicalOr) => {
+                                | Some(Token::LogicalOr)
+                                | Some(Token::Comma)
+                                | Some(Token::RightBracket) => {
                                     vec![]
                                 }
                                 Some(Token::Sub) => {
@@ -520,6 +583,9 @@ impl Parser {
                                 }
                             },
                             GrammarSymbol::IDOrFn => match token {
+                                Some(Token::LeftBracket) => {
+                                    vec![GrammarSymbol::OptIndex]
+                                }
                                 Some(Token::LeftParen) => {
                                     vec![
                                         GrammarSymbol::Terminal(Token::LeftParen),
@@ -541,15 +607,27 @@ impl Parser {
                                 | Some(Token::Geq)
                                 | Some(Token::LeftBrace)
                                 | Some(Token::LogicalAnd)
-                                | Some(Token::LogicalOr) => {
+                                | Some(Token::LogicalOr)
+                                | Some(Token::Comma)
+                                | Some(Token::RightBracket) => {
                                     // println!("T' -> `");
                                     vec![]
                                 }
                                 _ => {
+                                    println!("{token:?}");
                                     return Err(
                                         "syntax error: expected identifier or function call"
                                             .to_string(),
                                     );
+                                }
+                            },
+                            GrammarSymbol::Idx => match token {
+                                Some(Token::Integer(i)) => {
+                                    vec![GrammarSymbol::Terminal(Token::Integer(i))]
+                                }
+                                _ => {
+                                    return Err("syntax error: expected integer index for array"
+                                        .to_string());
                                 }
                             },
                             GrammarSymbol::InputList => match token {
@@ -560,13 +638,15 @@ impl Parser {
                                 | Some(Token::Character(_))
                                 | Some(Token::True)
                                 | Some(Token::False)
-                                | Some(Token::LeftParen) => {
-                                    vec![GrammarSymbol::Expression, GrammarSymbol::InputRest]
+                                | Some(Token::LeftParen)
+                                | Some(Token::LeftBracket) => {
+                                    vec![GrammarSymbol::CondOrArr, GrammarSymbol::InputRest]
                                 }
-                                Some(Token::RightParen) => {
+                                Some(Token::RightParen) | Some(Token::RightBracket) => {
                                     vec![]
                                 }
                                 _ => {
+                                    println!("{token:?}");
                                     return Err("syntax error: expected valid input".to_string());
                                 }
                             },
@@ -577,7 +657,7 @@ impl Parser {
                                         GrammarSymbol::InputList,
                                     ]
                                 }
-                                Some(Token::RightParen) => {
+                                Some(Token::RightParen) | Some(Token::RightBracket) => {
                                     // println!("input_rest -> `")
                                     vec![]
                                 }
@@ -684,6 +764,40 @@ impl Parser {
                                 Some(Token::LeftBrace) => vec![],
                                 _ => {
                                     return Err("syntax error: expected : or {".to_string());
+                                }
+                            },
+                            GrammarSymbol::OptIndex => match token {
+                                Some(Token::LeftBracket) => {
+                                    vec![
+                                        GrammarSymbol::Terminal(Token::LeftBracket),
+                                        GrammarSymbol::Idx,
+                                        GrammarSymbol::Terminal(Token::RightBracket),
+                                        GrammarSymbol::OptIndex,
+                                    ]
+                                }
+                                Some(Token::Assign)
+                                | Some(Token::Mul)
+                                | Some(Token::Div)
+                                | Some(Token::Add)
+                                | Some(Token::Sub)
+                                | Some(Token::RightParen)
+                                | Some(Token::Semicolon)
+                                | Some(Token::Equals)
+                                | Some(Token::Neq)
+                                | Some(Token::Less)
+                                | Some(Token::Greater)
+                                | Some(Token::Leq)
+                                | Some(Token::Geq)
+                                | Some(Token::LeftBrace)
+                                | Some(Token::LogicalAnd)
+                                | Some(Token::LogicalOr)
+                                | Some(Token::Comma)
+                                | Some(Token::RightBracket) => {
+                                    vec![]
+                                }
+                                _ => {
+                                    println!("{token:?}");
+                                    return Err("syntax error: expected array index".to_string());
                                 }
                             },
                             GrammarSymbol::Param => match token {
@@ -847,7 +961,9 @@ impl Parser {
                                 | Some(Token::Geq)
                                 | Some(Token::LeftBrace)
                                 | Some(Token::LogicalAnd)
-                                | Some(Token::LogicalOr) => {
+                                | Some(Token::LogicalOr)
+                                | Some(Token::Comma)
+                                | Some(Token::RightBracket) => {
                                     vec![]
                                 }
                                 _ => {
@@ -899,6 +1015,15 @@ impl Parser {
                                 }
                                 Some(Token::Char) => {
                                     vec![GrammarSymbol::Terminal(Token::Char)]
+                                }
+                                Some(Token::LeftBracket) => {
+                                    vec![
+                                        GrammarSymbol::Terminal(Token::LeftBracket),
+                                        GrammarSymbol::Type,
+                                        GrammarSymbol::Terminal(Token::Semicolon),
+                                        GrammarSymbol::ArrLen,
+                                        GrammarSymbol::Terminal(Token::RightBracket),
+                                    ]
                                 }
                                 _ => {
                                     return Err("syntax error: expected type".to_string());
@@ -1114,7 +1239,47 @@ impl Parser {
                 GrammarSymbol::Terminal(Token::Char) => {
                     tree.node = SyntaxTreeNode::Identifier("char".to_string());
                 }
+                GrammarSymbol::Terminal(Token::LeftBracket) => {
+                    let t = self.build_ast_from_parse_node(children[1]);
+                    let t = match t.node {
+                        SyntaxTreeNode::Identifier(id) => id,
+                        _ => "".to_string(),
+                    };
+
+                    let len = self.build_ast_from_parse_node(children[3]);
+                    let len = match len.node {
+                        SyntaxTreeNode::Integer(i) => i,
+                        _ => 0,
+                    };
+
+                    let type_name = format!("[{}; {}]", t, len);
+                    tree.node = SyntaxTreeNode::Identifier(type_name);
+                }
                 _ => {}
+            },
+            GrammarSymbol::Array => {
+                tree = self.build_ast_from_parse_node(children[1]);
+            }
+            GrammarSymbol::ArrLen => match self.parse_tree.get_node(children[0]) {
+                GrammarSymbol::Terminal(Token::Integer(i)) => {
+                    tree.node = SyntaxTreeNode::Integer(i);
+                }
+                _ => {}
+            },
+            GrammarSymbol::OptIndex => match self.parse_tree.get_node(children[0]) {
+                GrammarSymbol::Terminal(Token::LeftBracket) => {
+                    tree.node = SyntaxTreeNode::Index;
+
+                    tree.children = vec![self.build_ast_from_parse_node(children[1])];
+
+                    if children.len() > 3 {
+                        tree.children
+                            .push(self.build_ast_from_parse_node(children[3]));
+                    }
+                }
+                _ => {
+                    tree.node = SyntaxTreeNode::Null;
+                }
             },
             GrammarSymbol::Block => {
                 tree = self.build_ast_from_parse_node(children[1]);
@@ -1128,6 +1293,12 @@ impl Parser {
                         self.build_ast_from_parse_node(children[0]),
                         self.build_ast_from_parse_node(children[1]),
                     ];
+                }
+            },
+            GrammarSymbol::CondOrArr => match self.parse_tree.get_node(children[0]) {
+                GrammarSymbol::Terminal(Token::LeftBracket) => {}
+                _ => {
+                    tree = self.build_ast_from_parse_node(children[0]);
                 }
             },
             GrammarSymbol::Stmt => match self.parse_tree.get_node(children[0]) {
@@ -1204,6 +1375,20 @@ impl Parser {
                     tree.node = SyntaxTreeNode::FnCall;
 
                     tree.children = vec![self.build_ast_from_parse_node(children[1])];
+                }
+                GrammarSymbol::OptIndex => {
+                    tree.node = SyntaxTreeNode::Assign;
+
+                    tree.children = vec![
+                        self.build_ast_from_parse_node(children[0]),
+                        self.build_ast_from_parse_node(children[2]),
+                    ];
+                }
+                _ => {}
+            },
+            GrammarSymbol::Idx => match self.parse_tree.get_node(children[0]) {
+                GrammarSymbol::Terminal(Token::Integer(i)) => {
+                    tree.node = SyntaxTreeNode::Integer(i);
                 }
                 _ => {}
             },
@@ -1352,6 +1537,11 @@ impl Parser {
                         SyntaxTreeNode::Null => {
                             tree = self.build_ast_from_parse_node(children[0]);
                         }
+                        SyntaxTreeNode::Index => {
+                            tree = self.build_ast_from_parse_node(children[0]);
+
+                            tree.children = vec![subtree];
+                        }
                         SyntaxTreeNode::InputList => {
                             tree.node = SyntaxTreeNode::FnCall;
 
@@ -1397,7 +1587,11 @@ impl Parser {
             },
             GrammarSymbol::IDOrFn => {
                 if children.len() == 1 {
-                    tree.node = SyntaxTreeNode::Null;
+                    if self.parse_tree.get_node(children[0]) == GrammarSymbol::OptIndex {
+                        tree = self.build_ast_from_parse_node(children[0]);
+                    } else {
+                        tree.node = SyntaxTreeNode::Null;
+                    }
                 } else {
                     tree = self.build_ast_from_parse_node(children[1]);
                 }
@@ -1529,7 +1723,7 @@ impl Parser {
                 GrammarSymbol::Empty => {
                     tree.node = SyntaxTreeNode::Null;
                 }
-                GrammarSymbol::Expression => {
+                GrammarSymbol::CondOrArr => {
                     tree.node = SyntaxTreeNode::InputList;
 
                     tree.children = vec![

@@ -446,19 +446,26 @@ impl Source {
                 };
 
                 let r_value = Self::get_type(functions, var_set, children[2].clone())?;
-
                 if l_value != r_value {
                     return Err(8);
                 }
             }
             SyntaxTreeNode::Assign => {
-                let l_value =
+                let mut l_value =
                     Self::get_type(functions.clone(), var_set.clone(), children[0].clone())?;
 
-                let r_value =
-                    Self::get_type(functions.clone(), var_set.clone(), children[1].clone())?;
+                if children.len() == 3 {
+                    l_value = Self::get_indexed(l_value, children[1].clone())?;
+                }
+
+                let r_value = Self::get_type(
+                    functions.clone(),
+                    var_set.clone(),
+                    children[children.len() - 1].clone(),
+                )?;
 
                 if l_value != r_value {
+                    println!("{l_value}{r_value}");
                     return Err(9);
                 }
             }
@@ -547,11 +554,28 @@ impl Source {
             SyntaxTreeNode::Identifier(id) => {
                 for (var_id, var_type) in var_set {
                     if var_id == id {
-                        return Ok(var_type.clone());
+                        let mut fin = var_type.clone();
+                        if ast.children.len() > 0 {
+                            fin = Self::get_indexed(fin.clone(), children[0].clone())?;
+                        }
+
+                        return Ok(fin);
                     }
                 }
 
                 Err(12)
+            }
+            SyntaxTreeNode::InputList => {
+                let inputs = Self::get_inputs(functions.clone(), var_set.clone(), ast.clone())?;
+                let first = inputs[0].clone();
+
+                for ty in inputs.clone() {
+                    if ty != first {
+                        return Err(21);
+                    }
+                }
+
+                Ok(format!("[{first}; {}]", inputs.len()))
             }
             SyntaxTreeNode::Integer(_) => Ok(String::from("int")),
             SyntaxTreeNode::Float(_) => Ok(String::from("float")),
@@ -559,7 +583,7 @@ impl Source {
             SyntaxTreeNode::Character(_) => Ok(String::from("char")),
             SyntaxTreeNode::FnCall => {
                 let params =
-                    Self::get_inputs(functions.clone(), var_set.clone(), children[1].clone());
+                    Self::get_inputs(functions.clone(), var_set.clone(), children[1].clone())?;
 
                 match children[0].clone().node {
                     SyntaxTreeNode::Identifier(id) => {
@@ -588,47 +612,94 @@ impl Source {
         }
     }
 
+    fn get_indexed(l_value: String, ast: AbstractSyntaxTree) -> Result<String, usize> {
+        let children = ast.children.clone();
+
+        match ast.node {
+            SyntaxTreeNode::Index => {
+                let indexed_l_value = Self::get_indexed(l_value.clone(), children[1].clone())?;
+
+                match children[0].clone().node {
+                    SyntaxTreeNode::Integer(i) => {
+                        if i < 0 {
+                            return Err(22);
+                        }
+                    }
+                    _ => {}
+                }
+
+                let last_semicolon = indexed_l_value.rfind(";");
+                if last_semicolon == None {
+                    return Err(23);
+                }
+
+                Ok(indexed_l_value
+                    .get(1..last_semicolon.unwrap())
+                    .unwrap()
+                    .to_string())
+            }
+            _ => Ok(l_value),
+        }
+    }
+
     fn get_inputs(
         functions: Vec<(String, String, Vec<(String, String)>)>,
         var_set: HashSet<(String, String)>,
         ast: AbstractSyntaxTree,
-    ) -> Vec<String> {
+    ) -> Result<Vec<String>, usize> {
         if ast.node == SyntaxTreeNode::Null {
-            vec![]
+            Ok(vec![])
         } else {
             let mut ret = match ast.children[0].clone().node {
-                SyntaxTreeNode::Integer(_) => {
-                    vec![String::from("int")]
-                }
-                SyntaxTreeNode::Float(_) => {
-                    vec![String::from("float")]
-                }
-                SyntaxTreeNode::Identifier(id) => {
-                    for (var_id, var_type) in var_set.clone() {
-                        if var_id == id {
-                            return vec![var_type];
+                SyntaxTreeNode::InputList => {
+                    let t = Self::get_inputs(
+                        functions.clone(),
+                        var_set.clone(),
+                        ast.children[0].clone(),
+                    )?;
+
+                    let first = t[0].clone();
+
+                    for ty in t.clone() {
+                        if ty != first {
+                            return Err(21);
                         }
                     }
 
-                    vec![]
+                    vec![format!("[{first}; {}]", t.len())]
+                }
+                SyntaxTreeNode::Integer(_) => vec![String::from("int")],
+                SyntaxTreeNode::Float(_) => vec![String::from("float")],
+                SyntaxTreeNode::Identifier(id) => {
+                    let mut fin = vec![];
+                    for (var_id, var_type) in var_set.clone() {
+                        if var_id == id {
+                            fin = vec![var_type];
+                            break;
+                        }
+                    }
+
+                    fin
                 }
                 SyntaxTreeNode::AddOp
                 | SyntaxTreeNode::SubOp
                 | SyntaxTreeNode::MulOp
                 | SyntaxTreeNode::DivOp => {
-                    let t =
-                        Self::get_type(functions.clone(), var_set.clone(), ast.children[0].clone())
-                            .expect("failed type check");
+                    let t = Self::get_type(
+                        functions.clone(),
+                        var_set.clone(),
+                        ast.children[0].clone(),
+                    )?;
                     vec![t]
                 }
                 _ => vec![],
             };
 
             let mut rest =
-                Self::get_inputs(functions.clone(), var_set.clone(), ast.children[1].clone());
+                Self::get_inputs(functions.clone(), var_set.clone(), ast.children[1].clone())?;
             ret.append(&mut rest);
 
-            ret
+            Ok(ret)
         }
     }
 

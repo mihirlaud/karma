@@ -133,11 +133,26 @@ follow = ["var", "const", "IDENTIFIER", "while", "if", "return", "}"]
 
 [assign_or_fn_call]
 prods = [
-    ["=", "conditional", ";"],
+    ["opt_index", "=", "cond_or_arr", ";"],
     ["(", "input_list", ")", ";"]
 ]
-first = ["=", "("]
+first = ["=", "(", "["]
 follow = ["var", "const", "IDENTIFIER", "while", "if", "return", "}"]
+
+[opt_index]
+prods = [
+    ["[", "idx", "]", "opt_index"],
+    [""]
+]
+first = ["[", ""]
+follow = ["="]
+
+[idx]
+prods = [
+    ["INTEGER"]
+]
+first = ["INTEGER"]
+follow = ["]"]
 
 [optelse]
 prods = [
@@ -152,7 +167,7 @@ prods = [
     ["term", "expression1"]
 ]
 first = ["(", "IDENTIFIER", "-", "INTEGER", "FLOAT", "true", "false", "CHARACTER"]
-follow = [")", ";", "==", "!=", "<", ">", "<=", ">=", "&&", "||", "{"]
+follow = [")", ";", "==", "!=", "<", ">", "<=", ">=", "&&", "||", "{", ",", "]"]
 
 [expression1]
 prods = [
@@ -161,7 +176,7 @@ prods = [
     [""]
 ]
 first = ["+", "-", ""]
-follow = [")", ";", "==", "!=", "<", ">", "<=", ">=", "&&", "||", "{"]
+follow = [")", ";", "==", "!=", "<", ">", "<=", ">=", "&&", "||", "{", ",", "]"]
 
 [term]
 prods = [
@@ -169,7 +184,7 @@ prods = [
     ["CHARACTER"]
 ]
 first = ["(", "IDENTIFIER", "-", "INTEGER", "FLOAT", "true", "false", "CHARACTER"]
-follow = ["+", "-", ")", ";", "==", "!=", "<", ">", "<=", ">=", "&&", "||", "{"]
+follow = ["+", "-", ")", ";", "==", "!=", "<", ">", "<=", ">=", "&&", "||", "{", ",", "]"]
 
 [term1]
 prods = [
@@ -178,7 +193,7 @@ prods = [
     [""]
 ]
 first = ["*", "/", ""]
-follow = ["+", "-", ")", ";", "==", "!=", "<", ">", "<=", ">=", "&&", "||", "{"]
+follow = ["+", "-", ")", ";", "==", "!=", "<", ">", "<=", ">=", "&&", "||", "{", ",", "]"]
 
 [factor]
 prods = [
@@ -187,15 +202,16 @@ prods = [
     ["primitive"]
 ]
 first = ["(", "IDENTIFIER", "-", "INTEGER", "FLOAT", "true", "false"]
-follow = ["*", "/", "+", "-", ")", ";", "==", "!=", "<", ">", "<=", ">=", "&&", "||", "{"]
+follow = ["*", "/", "+", "-", ")", ";", "==", "!=", "<", ">", "<=", ">=", "&&", "||", "{", ",", "]"]
 
 [id_or_fn]
 prods = [
     ["(", "input_list", ")"],
+    ["opt_index"],
     [""]
 ]
-first = ["(", ""]
-follow = ["*", "/", "+", "-", ")", ";", "==", "!=", "<", ">", "<=", ">=", "&&", "||", "{"]
+first = ["(", "[", ""]
+follow = ["*", "/", "+", "-", ")", ";", "==", "!=", "<", ">", "<=", ">=", "&&", "||", "{", ",", "]"]
 
 [id]
 prods = [
@@ -206,11 +222,11 @@ follow = [")", "+", "-", "*", "/", ";", ":", "=", "(", "{"]
 
 [input_list]
 prods = [
-    ["expression", "input_rest"],
+    ["cond_or_arr", "input_rest"],
     [""]
 ]
-first = ["(", "IDENTIFIER", "-", "INTEGER", "FLOAT", "true", "false", "CHARACTER", ""]
-follow = [")"]
+first = ["(", "IDENTIFIER", "-", "INTEGER", "FLOAT", "true", "false", "CHARACTER", "[", ""]
+follow = [")", "]"]
 
 [input_rest]
 prods = [
@@ -218,14 +234,14 @@ prods = [
     [""]
 ]
 first = [",", ""]
-follow = [")"]
+follow = [")", "]"]
 
 [conditional]
 prods = [
     ["bool_term", "conditional1"]
 ]
 first = ["(", "IDENTIFIER", "-", "INTEGER", "FLOAT", "true", "false", "CHARACTER"]
-follow = ["{", ";"]
+follow = ["{", ";", ",", ")", "]"]
 
 [conditional1]
 prods = [
@@ -233,7 +249,7 @@ prods = [
     [""]
 ]
 first = ["||", ""]
-follow = ["{", ";"]
+follow = ["{", ";", ",", ")", "]"]
 
 [bool_term]
 prods = [
@@ -241,7 +257,7 @@ prods = [
 ]
 
 first = ["(", "IDENTIFIER", "-", "INTEGER", "FLOAT", "true", "false", "CHARACTER"]
-follow = ["{", "||", ";"]
+follow = ["{", "||", ";", ",", ")", "]"]
 
 [bool_term1]
 prods = [
@@ -249,14 +265,14 @@ prods = [
     [""]
 ]
 first = ["||", ""]
-follow = ["{", "||", ";"]
+follow = ["{", "||", ";", ",", ")", "]"]
 
 [bool_expr]
 prods = [
     ["expression", "comparison"],
 ]
 first = ["(", "IDENTIFIER", "-", "INTEGER", "FLOAT", "true", "false", "CHARACTER"]
-follow = ["&&", "||", "{", ";"]
+follow = ["&&", "||", "{", ";", ",", ")", "]"]
 
 [comparison]
 prods = [
@@ -269,7 +285,7 @@ prods = [
     [""]
 ]
 first = ["==", "!=", "<", ">", "<=", ">=", ""]
-follow = ["&&", "||", "{", ";"]
+follow = ["&&", "||", "{", ";", ",", ")", "]"]
 
 [primitive]
 prods = [
@@ -289,8 +305,8 @@ first = ["INTEGER", "FLOAT"]
 
 [definition]
 prods = [
-    ["var", "id", ":", "type", "=", "conditional", ";"],
-    ["const", "id", ":", "type", "=", "conditional", ";"],
+    ["var", "id", ":", "type", "=", "cond_or_arr", ";"],
+    ["const", "id", ":", "type", "=", "cond_or_arr", ";"],
 ]
 first = ["var", "const"]
 follow = ["fn", "export", "var", "const", "IDENTIFIER", "while", "if", "return", "}"]
@@ -302,7 +318,28 @@ prods = [
     ["float"],
     ["char"],
     ["bool"],
-    ["[", "type", ";", "INTEGER", "]"],
+    ["[", "type", ";", "arr_len", "]"],
 ]
 first = ["IDENTIFIER", "int", "float", "char", "bool", "["]
 follow = ["=", "{", ";"]
+
+[cond_or_arr]
+prods = [
+    ["conditional"],
+    ["array"]
+]
+first = ["[", "(", "IDENTIFIER", "-", "INTEGER", "FLOAT", "true", "false", "CHARACTER"]
+follow = ["{", ";", ","]
+
+[array]
+prods = [
+    ["[", "input_list", "]"],
+]
+first = ["["]
+
+[arr_len]
+prods = [
+    ["INTEGER"]
+]
+first = ["INTEGER"]
+follow = ["]"]

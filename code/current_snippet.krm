@@ -1,9 +1,14 @@
 node HelloKarma {
     fn main() -> int {
-        var a: int = 0;
+        var identity: [[int; 3]; 3] = [
+            [1, 0, 0],
+            [0, 1, 0],
+            [0, 0, 1]
+        ];
 
-        print_int(a);
+        var a: int = identity[0][0];
+        identity[1][2] = 5;
 
-        return a;
+        return 0;
     }
 }
