@@ -60,6 +60,20 @@
 # eqb       -- 0x62
 # neqb      -- 0x63
 
+# arrays
+# decla     -- 0x80 addr    type_len    len
+# loada     -- 0x81 addr
+# loadai    -- 0x82 addr    idx
+# loadaf    -- 0x83 addr    idx
+# loadab    -- 0x84 addr    idx
+# loadac    -- 0x85 addr    idx
+# stora     -- 0x86 addr
+# storai    -- 0x87 addr    idx
+# storaf    -- 0x88 addr    idx
+# storab    -- 0x89 addr    idx
+# storac    -- 0x8A addr    idx
+# dstra     -- 0x8B addr
+
 # io
 # prnti     -- 0x90
 # prntf     -- 0x91

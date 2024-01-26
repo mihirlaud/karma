@@ -307,7 +307,7 @@ impl Source {
                 stack.push_back(ScopeElem::Variable(id));
             }
             SyntaxTreeNode::Assign => {
-                Self::check_semantics_helper(stack, var_set, children[1].clone())?;
+                Self::check_semantics_helper(stack, var_set, children[children.len() - 1].clone())?;
 
                 let id = match children[0].clone().node {
                     SyntaxTreeNode::Identifier(id) => id,
@@ -670,6 +670,8 @@ impl Source {
                 }
                 SyntaxTreeNode::Integer(_) => vec![String::from("int")],
                 SyntaxTreeNode::Float(_) => vec![String::from("float")],
+                SyntaxTreeNode::Character(_) => vec![String::from("char")],
+                SyntaxTreeNode::True | SyntaxTreeNode::False => vec![String::from("bool")],
                 SyntaxTreeNode::Identifier(id) => {
                     let mut fin = vec![];
                     for (var_id, var_type) in var_set.clone() {
@@ -841,11 +843,34 @@ impl Source {
                             "float" => 0x21,
                             "bool" => 0x28,
                             "char" => 0x2C,
-                            _ => 0x0,
+                            _ => {
+                                if var_type.get(0..1).unwrap() == "[" {
+                                    0x80
+                                } else {
+                                    0x0
+                                }
+                            }
                         });
 
                         let b = addr.to_be_bytes();
                         bytes.extend_from_slice(&b);
+
+                        if var_type.get(0..1).unwrap() == "[" {
+                            let last_semicolon = var_type.rfind(";").unwrap();
+                            let len = var_type
+                                .get(last_semicolon + 2..last_semicolon + 3)
+                                .unwrap();
+                            let len = len.parse::<i32>().expect("could not parse to int");
+
+                            let arr_type = var_type.get(1..last_semicolon).unwrap();
+                            match arr_type {
+                                "int" | "float" => bytes.push(0x4),
+                                "bool" | "char" => bytes.push(0x1),
+                                _ => {}
+                            }
+
+                            bytes.extend_from_slice(&len.to_be_bytes());
+                        }
 
                         addr += match var_type.as_str() {
                             "int" | "float" => 4,
@@ -861,8 +886,15 @@ impl Source {
                             "float" => 0x25,
                             "bool" => 0x2A,
                             "char" => 0x2E,
-                            _ => 0x0,
+                            _ => {
+                                if param_type.get(0..1).unwrap() == "[" {
+                                    0x81
+                                } else {
+                                    0x0
+                                }
+                            }
                         });
+
                         let b = addr.to_be_bytes();
                         bytes.extend_from_slice(&b);
                     }
@@ -905,11 +937,40 @@ impl Source {
                                 "float" => 0x21,
                                 "bool" => 0x28,
                                 "char" => 0x2C,
-                                _ => 0x0,
+                                _ => {
+                                    if var_type.get(0..1).unwrap() == "[" {
+                                        0x80
+                                    } else {
+                                        0x0
+                                    }
+                                }
                             });
 
                             let b = addr.to_be_bytes();
                             bytes.extend_from_slice(&b);
+
+                            if var_type.get(0..1).unwrap() == "[" {
+                                let last_semicolon = var_type.rfind(";").unwrap();
+                                let len = var_type
+                                    .get(last_semicolon + 2..last_semicolon + 3)
+                                    .unwrap();
+                                let len = len.parse::<i32>().expect("could not parse to int");
+
+                                let arr_type = var_type.get(1..last_semicolon).unwrap();
+                                match arr_type {
+                                    "int" | "float" => bytes.push(0x4),
+                                    "bool" | "char" => bytes.push(0x1),
+                                    _ => {}
+                                }
+
+                                bytes.extend_from_slice(&len.to_be_bytes());
+
+                                addr += match var_type.as_str() {
+                                    "int" | "float" => 4 * (len - 1) as u32,
+                                    "bool" | "char" => 1 * (len - 1) as u32,
+                                    _ => 0,
+                                };
+                            }
 
                             addr += match var_type.as_str() {
                                 "int" | "float" => 4,
@@ -925,7 +986,13 @@ impl Source {
                                 "float" => 0x25,
                                 "bool" => 0x2A,
                                 "char" => 0x2E,
-                                _ => 0x0,
+                                _ => {
+                                    if param_type.get(0..1).unwrap() == "[" {
+                                        0x81
+                                    } else {
+                                        0x0
+                                    }
+                                }
                             });
                             let b = addr.to_be_bytes();
                             bytes.extend_from_slice(&b);
@@ -983,7 +1050,7 @@ impl Source {
     ) {
         let children = ast.children.clone();
         match ast.node {
-            SyntaxTreeNode::DeclareConst => {
+            SyntaxTreeNode::DeclareConst | SyntaxTreeNode::DeclareVar => {
                 Self::generate_expr_bytecode(
                     bytes,
                     functions,
@@ -999,42 +1066,77 @@ impl Source {
                 };
 
                 let (t, addr) = variable_addresses[&id].clone();
-                bytes.push(match t.as_str() {
-                    "int" => 0x24,
-                    "float" => 0x25,
-                    "bool" => 0x2A,
-                    "char" => 0x2E,
-                    _ => 0x0,
+                let mut slice = vec![];
+                bytes.extend_from_slice(match t.as_str() {
+                    "int" => &[0x24],
+                    "float" => &[0x25],
+                    "bool" => &[0x2A],
+                    "char" => &[0x2E],
+                    _ => {
+                        if t.get(0..1).unwrap() == "[" {
+                            let last_semicolon = t.rfind(";").unwrap();
+                            let len = t.get(last_semicolon + 2..last_semicolon + 3).unwrap();
+                            let len = len.parse::<i32>().expect("could not parse to int");
+
+                            let arr_type = t.get(1..last_semicolon).unwrap();
+                            match arr_type {
+                                "int" => {
+                                    for i in 0..len {
+                                        slice.push(0x87);
+                                        let b = addr.to_be_bytes();
+                                        slice.extend_from_slice(&b);
+                                        let b = i.to_be_bytes();
+                                        slice.extend_from_slice(&b);
+                                    }
+
+                                    &slice
+                                }
+                                "float" => {
+                                    for i in 0..len {
+                                        slice.push(0x88);
+                                        let b = addr.to_be_bytes();
+                                        slice.extend_from_slice(&b);
+                                        let b = i.to_be_bytes();
+                                        slice.extend_from_slice(&b);
+                                    }
+
+                                    &slice
+                                }
+                                "bool" => {
+                                    for i in 0..len {
+                                        slice.push(0x89);
+                                        let b = addr.to_be_bytes();
+                                        slice.extend_from_slice(&b);
+                                        let b = i.to_be_bytes();
+                                        slice.extend_from_slice(&b);
+                                    }
+
+                                    &slice
+                                }
+                                "char" => {
+                                    for i in 0..len {
+                                        slice.push(0x8A);
+                                        let b = addr.to_be_bytes();
+                                        slice.extend_from_slice(&b);
+                                        let b = i.to_be_bytes();
+                                        slice.extend_from_slice(&b);
+                                    }
+
+                                    &slice
+                                }
+
+                                _ => &[0x0],
+                            }
+                        } else {
+                            &[0x0]
+                        }
+                    }
                 });
 
-                let b = addr.to_be_bytes();
-                bytes.extend_from_slice(&b);
-            }
-            SyntaxTreeNode::DeclareVar => {
-                Self::generate_expr_bytecode(
-                    bytes,
-                    functions,
-                    var_set,
-                    variable_addresses,
-                    calls,
-                    children[2].clone(),
-                );
-
-                let id = match children[0].clone().node {
-                    SyntaxTreeNode::Identifier(id) => id,
-                    _ => "".to_string(),
-                };
-
-                let (t, addr) = variable_addresses[&id].clone();
-                bytes.push(match t.as_str() {
-                    "int" => 0x24,
-                    "float" => 0x25,
-                    "bool" => 0x2A,
-                    "char" => 0x2E,
-                    _ => 0x0,
-                });
-                let b = addr.to_be_bytes();
-                bytes.extend_from_slice(&b);
+                if t.get(0..1).unwrap() != "[" {
+                    let b = addr.to_be_bytes();
+                    bytes.extend_from_slice(&b);
+                }
             }
             SyntaxTreeNode::Assign => {
                 Self::generate_expr_bytecode(
@@ -1043,7 +1145,7 @@ impl Source {
                     var_set,
                     variable_addresses,
                     calls,
-                    children[1].clone(),
+                    children[children.len() - 1].clone(),
                 );
 
                 let id = match children[0].clone().node {
@@ -1057,10 +1159,34 @@ impl Source {
                     "float" => 0x25,
                     "bool" => 0x2A,
                     "char" => 0x2E,
-                    _ => 0x0,
+                    _ => {
+                        if children[1].clone().node == SyntaxTreeNode::Index {
+                            let last_semicolon = t.rfind(";").unwrap();
+
+                            let arr_type = t.get(1..last_semicolon).unwrap();
+                            match arr_type {
+                                "int" => 0x87,
+                                "float" => 0x88,
+                                "bool" => 0x89,
+                                "char" => 0x8A,
+                                _ => 0x0,
+                            }
+                        } else {
+                            0x0
+                        }
+                    }
                 });
+
                 let b = addr.to_be_bytes();
                 bytes.extend_from_slice(&b);
+
+                match children[1].clone().children[0].clone().node {
+                    SyntaxTreeNode::Integer(i) => {
+                        let b = i.to_be_bytes();
+                        bytes.extend_from_slice(&b);
+                    }
+                    _ => {}
+                }
             }
             SyntaxTreeNode::FnCall => {
                 let id = match children[0].clone().node {
@@ -1254,6 +1380,16 @@ impl Source {
         }
 
         match ast.node {
+            SyntaxTreeNode::InputList => {
+                Self::generate_inputs_bytecode(
+                    bytes,
+                    functions,
+                    var_set,
+                    variable_addresses,
+                    calls,
+                    ast.clone(),
+                );
+            }
             SyntaxTreeNode::FnCall => {
                 let id = match children[0].clone().node {
                     SyntaxTreeNode::Identifier(id) => id,
@@ -1420,11 +1556,35 @@ impl Source {
                     "float" => 0x23,
                     "bool" => 0x29,
                     "char" => 0x2D,
-                    _ => 0x0,
+                    _ => {
+                        if t.get(0..1).unwrap() == "[" {
+                            let last_semicolon = t.rfind(";").unwrap();
+                            let arr_type = t.get(1..last_semicolon).unwrap();
+                            match arr_type {
+                                "int" => 0x82,
+                                "float" => 0x83,
+                                "bool" => 0x84,
+                                "char" => 0x85,
+                                _ => 0x0,
+                            }
+                        } else {
+                            0x0
+                        }
+                    }
                 });
 
                 let b = addr.to_be_bytes();
                 bytes.extend_from_slice(&b);
+
+                if children.len() > 0 {
+                    match children[0].clone().children[0].clone().node {
+                        SyntaxTreeNode::Integer(i) => {
+                            let b = i.to_be_bytes();
+                            bytes.extend_from_slice(&b);
+                        }
+                        _ => {}
+                    }
+                }
             }
             _ => {
                 for child in children {
