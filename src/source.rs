@@ -307,7 +307,8 @@ impl Source {
                 stack.push_back(ScopeElem::Variable(id));
             }
             SyntaxTreeNode::Assign => {
-                Self::check_semantics_helper(stack, var_set, children[children.len() - 1].clone())?;
+                Self::check_semantics_helper(stack, var_set, children[1].clone())?;
+                Self::check_semantics_helper(stack, var_set, children[2].clone())?;
 
                 let id = match children[0].clone().node {
                     SyntaxTreeNode::Identifier(id) => id,
@@ -383,18 +384,24 @@ impl Source {
             | SyntaxTreeNode::CompLeq
             | SyntaxTreeNode::CompGeq
             | SyntaxTreeNode::CompLess
-            | SyntaxTreeNode::CompGreater => {
+            | SyntaxTreeNode::CompGreater
+            | SyntaxTreeNode::Index => {
                 Self::check_semantics_helper(stack, var_set, children[0].clone())?;
                 Self::check_semantics_helper(stack, var_set, children[1].clone())?;
             }
             SyntaxTreeNode::Identifier(id) => {
-                for elem in stack {
+                if children.len() > 0 {
+                    Self::check_semantics_helper(stack, var_set, children[0].clone())?;
+                }
+
+                for elem in stack.clone() {
                     if elem.clone() == ScopeElem::Variable(id.clone())
                         || elem.clone() == ScopeElem::Const(id.clone())
                     {
                         return Ok(());
                     }
                 }
+
                 return Err(6);
             }
             SyntaxTreeNode::FnCall => {
@@ -454,18 +461,19 @@ impl Source {
                 let mut l_value =
                     Self::get_type(functions.clone(), var_set.clone(), children[0].clone())?;
 
-                if children.len() == 3 {
-                    l_value = Self::get_indexed(l_value, children[1].clone())?;
+                let arr_type =
+                    Self::get_type(functions.clone(), var_set.clone(), children[1].clone())?;
+
+                if arr_type != "int" && arr_type != "" {
+                    return Err(22);
                 }
 
-                let r_value = Self::get_type(
-                    functions.clone(),
-                    var_set.clone(),
-                    children[children.len() - 1].clone(),
-                )?;
+                l_value = Self::get_indexed(l_value, children[1].clone())?;
+
+                let r_value =
+                    Self::get_type(functions.clone(), var_set.clone(), children[2].clone())?;
 
                 if l_value != r_value {
-                    println!("{l_value}{r_value}");
                     return Err(9);
                 }
             }
@@ -520,6 +528,22 @@ impl Source {
                     Err(11)
                 }
             }
+            SyntaxTreeNode::Index => {
+                let l_value =
+                    Self::get_type(functions.clone(), var_set.clone(), children[0].clone())?;
+
+                let r_value = if children[1].clone().node != SyntaxTreeNode::Null {
+                    Self::get_type(functions.clone(), var_set.clone(), children[1].clone())?
+                } else {
+                    l_value.clone()
+                };
+
+                if l_value == r_value && l_value == "int" {
+                    Ok(l_value)
+                } else {
+                    Err(23)
+                }
+            }
             SyntaxTreeNode::CompEq
             | SyntaxTreeNode::CompNeq
             | SyntaxTreeNode::CompLess
@@ -552,6 +576,10 @@ impl Source {
                 }
             }
             SyntaxTreeNode::Identifier(id) => {
+                if ast.children.len() > 0 {
+                    Self::get_type(functions.clone(), var_set.clone(), children[0].clone())?;
+                }
+
                 for (var_id, var_type) in var_set {
                     if var_id == id {
                         let mut fin = var_type.clone();
@@ -858,7 +886,7 @@ impl Source {
                         if var_type.get(0..1).unwrap() == "[" {
                             let last_semicolon = var_type.rfind(";").unwrap();
                             let len = var_type
-                                .get(last_semicolon + 2..last_semicolon + 3)
+                                .get(last_semicolon + 2..var_type.len() - 1)
                                 .unwrap();
                             let len = len.parse::<i32>().expect("could not parse to int");
 
@@ -870,6 +898,12 @@ impl Source {
                             }
 
                             bytes.extend_from_slice(&len.to_be_bytes());
+
+                            addr += match arr_type {
+                                "int" | "float" => 4 * len as u32,
+                                "bool" | "char" => 1 * len as u32,
+                                _ => 0,
+                            };
                         }
 
                         addr += match var_type.as_str() {
@@ -952,7 +986,7 @@ impl Source {
                             if var_type.get(0..1).unwrap() == "[" {
                                 let last_semicolon = var_type.rfind(";").unwrap();
                                 let len = var_type
-                                    .get(last_semicolon + 2..last_semicolon + 3)
+                                    .get(last_semicolon + 2..var_type.len() - 1)
                                     .unwrap();
                                 let len = len.parse::<i32>().expect("could not parse to int");
 
@@ -965,9 +999,9 @@ impl Source {
 
                                 bytes.extend_from_slice(&len.to_be_bytes());
 
-                                addr += match var_type.as_str() {
-                                    "int" | "float" => 4 * (len - 1) as u32,
-                                    "bool" | "char" => 1 * (len - 1) as u32,
+                                addr += match arr_type {
+                                    "int" | "float" => 4 * len as u32,
+                                    "bool" | "char" => 1 * len as u32,
                                     _ => 0,
                                 };
                             }
@@ -1066,6 +1100,18 @@ impl Source {
                 };
 
                 let (t, addr) = variable_addresses[&id].clone();
+
+                // if t.get(0..1).unwrap() == "[" {
+                //     Self::generate_expr_bytecode(
+                //         bytes,
+                //         functions,
+                //         var_set,
+                //         variable_addresses,
+                //         calls,
+                //         children[1].clone(),
+                //     );
+                // }
+
                 let mut slice = vec![];
                 bytes.extend_from_slice(match t.as_str() {
                     "int" => &[0x24],
@@ -1075,7 +1121,7 @@ impl Source {
                     _ => {
                         if t.get(0..1).unwrap() == "[" {
                             let last_semicolon = t.rfind(";").unwrap();
-                            let len = t.get(last_semicolon + 2..last_semicolon + 3).unwrap();
+                            let len = t.get(last_semicolon + 2..t.len() - 1).unwrap();
                             let len = len.parse::<i32>().expect("could not parse to int");
 
                             let arr_type = t.get(1..last_semicolon).unwrap();
@@ -1084,8 +1130,6 @@ impl Source {
                                     for i in 0..len {
                                         slice.push(0x87);
                                         let b = addr.to_be_bytes();
-                                        slice.extend_from_slice(&b);
-                                        let b = i.to_be_bytes();
                                         slice.extend_from_slice(&b);
                                     }
 
@@ -1096,8 +1140,6 @@ impl Source {
                                         slice.push(0x88);
                                         let b = addr.to_be_bytes();
                                         slice.extend_from_slice(&b);
-                                        let b = i.to_be_bytes();
-                                        slice.extend_from_slice(&b);
                                     }
 
                                     &slice
@@ -1107,8 +1149,6 @@ impl Source {
                                         slice.push(0x89);
                                         let b = addr.to_be_bytes();
                                         slice.extend_from_slice(&b);
-                                        let b = i.to_be_bytes();
-                                        slice.extend_from_slice(&b);
                                     }
 
                                     &slice
@@ -1117,8 +1157,6 @@ impl Source {
                                     for i in 0..len {
                                         slice.push(0x8A);
                                         let b = addr.to_be_bytes();
-                                        slice.extend_from_slice(&b);
-                                        let b = i.to_be_bytes();
                                         slice.extend_from_slice(&b);
                                     }
 
@@ -1145,8 +1183,19 @@ impl Source {
                     var_set,
                     variable_addresses,
                     calls,
-                    children[children.len() - 1].clone(),
+                    children[2].clone(),
                 );
+
+                if children[1].clone().node == SyntaxTreeNode::Index {
+                    Self::generate_expr_bytecode(
+                        bytes,
+                        functions,
+                        var_set,
+                        variable_addresses,
+                        calls,
+                        children[1].clone().children[0].clone(),
+                    );
+                }
 
                 let id = match children[0].clone().node {
                     SyntaxTreeNode::Identifier(id) => id,
@@ -1180,12 +1229,14 @@ impl Source {
                 let b = addr.to_be_bytes();
                 bytes.extend_from_slice(&b);
 
-                match children[1].clone().children[0].clone().node {
-                    SyntaxTreeNode::Integer(i) => {
-                        let b = i.to_be_bytes();
-                        bytes.extend_from_slice(&b);
+                if children[1].clone().node == SyntaxTreeNode::Index {
+                    match children[1].clone().children[0].clone().node {
+                        SyntaxTreeNode::Integer(i) => {
+                            let b = i.to_be_bytes();
+                            bytes.extend_from_slice(&b);
+                        }
+                        _ => {}
                     }
-                    _ => {}
                 }
             }
             SyntaxTreeNode::FnCall => {
@@ -1381,13 +1432,14 @@ impl Source {
 
         match ast.node {
             SyntaxTreeNode::InputList => {
-                Self::generate_inputs_bytecode(
+                Self::generate_arr_bytecode(
                     bytes,
                     functions,
                     var_set,
                     variable_addresses,
                     calls,
                     ast.clone(),
+                    0,
                 );
             }
             SyntaxTreeNode::FnCall => {
@@ -1550,6 +1602,17 @@ impl Source {
                 bytes.extend_from_slice(&[0x15, c as u8]);
             }
             SyntaxTreeNode::Identifier(id) => {
+                if children.len() > 0 {
+                    Self::generate_expr_bytecode(
+                        bytes,
+                        functions,
+                        var_set,
+                        variable_addresses,
+                        calls,
+                        children[0].clone(),
+                    );
+                }
+
                 let (t, addr) = variable_addresses[&id].clone();
                 bytes.push(match t.as_str() {
                     "int" => 0x22,
@@ -1575,16 +1638,16 @@ impl Source {
 
                 let b = addr.to_be_bytes();
                 bytes.extend_from_slice(&b);
-
-                if children.len() > 0 {
-                    match children[0].clone().children[0].clone().node {
-                        SyntaxTreeNode::Integer(i) => {
-                            let b = i.to_be_bytes();
-                            bytes.extend_from_slice(&b);
-                        }
-                        _ => {}
-                    }
-                }
+            }
+            SyntaxTreeNode::Index => {
+                Self::generate_expr_bytecode(
+                    bytes,
+                    functions,
+                    var_set,
+                    variable_addresses,
+                    calls,
+                    children[0].clone(),
+                );
             }
             _ => {
                 for child in children {
@@ -1638,6 +1701,54 @@ impl Source {
                         variable_addresses,
                         calls,
                         child,
+                    );
+                }
+            }
+        }
+    }
+
+    fn generate_arr_bytecode(
+        bytes: &mut Vec<u8>,
+        functions: &Vec<(String, String, Vec<(String, String)>)>,
+        var_set: &HashSet<(String, String)>,
+        variable_addresses: &HashMap<String, (String, u32)>,
+        calls: &mut Vec<(usize, String)>,
+        ast: AbstractSyntaxTree,
+        idx: u32,
+    ) {
+        let children = ast.children.clone();
+        match ast.node {
+            SyntaxTreeNode::InputList => {
+                Self::generate_arr_bytecode(
+                    bytes,
+                    functions,
+                    var_set,
+                    variable_addresses,
+                    calls,
+                    children[1].clone(),
+                    idx + 1,
+                );
+                Self::generate_expr_bytecode(
+                    bytes,
+                    functions,
+                    var_set,
+                    variable_addresses,
+                    calls,
+                    children[0].clone(),
+                );
+                bytes.push(0x10);
+                bytes.extend_from_slice(&idx.to_be_bytes());
+            }
+            _ => {
+                for child in children {
+                    Self::generate_arr_bytecode(
+                        bytes,
+                        functions,
+                        var_set,
+                        variable_addresses,
+                        calls,
+                        child,
+                        idx + 1,
                     );
                 }
             }

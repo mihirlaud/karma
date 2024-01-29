@@ -172,7 +172,6 @@ pub enum GrammarSymbol {
     Func,
     ID,
     IDOrFn,
-    Idx,
     InputList,
     InputRest,
     NodeBlock,
@@ -621,15 +620,6 @@ impl Parser {
                                     );
                                 }
                             },
-                            GrammarSymbol::Idx => match token {
-                                Some(Token::Integer(i)) => {
-                                    vec![GrammarSymbol::Terminal(Token::Integer(i))]
-                                }
-                                _ => {
-                                    return Err("syntax error: expected integer index for array"
-                                        .to_string());
-                                }
-                            },
                             GrammarSymbol::InputList => match token {
                                 Some(Token::ID(_))
                                 | Some(Token::Sub)
@@ -770,7 +760,7 @@ impl Parser {
                                 Some(Token::LeftBracket) => {
                                     vec![
                                         GrammarSymbol::Terminal(Token::LeftBracket),
-                                        GrammarSymbol::Idx,
+                                        GrammarSymbol::Expression,
                                         GrammarSymbol::Terminal(Token::RightBracket),
                                         GrammarSymbol::OptIndex,
                                     ]
@@ -1366,11 +1356,6 @@ impl Parser {
                 _ => {}
             },
             GrammarSymbol::AssignOrFnCall => match self.parse_tree.get_node(children[0]) {
-                GrammarSymbol::Terminal(Token::Assign) => {
-                    tree.node = SyntaxTreeNode::Assign;
-
-                    tree.children = vec![self.build_ast_from_parse_node(children[1])];
-                }
                 GrammarSymbol::Terminal(Token::LeftParen) => {
                     tree.node = SyntaxTreeNode::FnCall;
 
@@ -1383,12 +1368,6 @@ impl Parser {
                         self.build_ast_from_parse_node(children[0]),
                         self.build_ast_from_parse_node(children[2]),
                     ];
-                }
-                _ => {}
-            },
-            GrammarSymbol::Idx => match self.parse_tree.get_node(children[0]) {
-                GrammarSymbol::Terminal(Token::Integer(i)) => {
-                    tree.node = SyntaxTreeNode::Integer(i);
                 }
                 _ => {}
             },

@@ -63,15 +63,15 @@
 # arrays
 # decla     -- 0x80 addr    type_len    len
 # loada     -- 0x81 addr
-# loadai    -- 0x82 addr    idx
-# loadaf    -- 0x83 addr    idx
-# loadab    -- 0x84 addr    idx
-# loadac    -- 0x85 addr    idx
+# loadai    -- 0x82 addr
+# loadaf    -- 0x83 addr
+# loadab    -- 0x84 addr
+# loadac    -- 0x85 addr
 # stora     -- 0x86 addr
-# storai    -- 0x87 addr    idx
-# storaf    -- 0x88 addr    idx
-# storab    -- 0x89 addr    idx
-# storac    -- 0x8A addr    idx
+# storai    -- 0x87 addr
+# storaf    -- 0x88 addr
+# storab    -- 0x89 addr
+# storac    -- 0x8A addr
 # dstra     -- 0x8B addr
 
 # io

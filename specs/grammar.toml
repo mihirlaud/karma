@@ -141,18 +141,11 @@ follow = ["var", "const", "IDENTIFIER", "while", "if", "return", "}"]
 
 [opt_index]
 prods = [
-    ["[", "idx", "]", "opt_index"],
+    ["[", "expression", "]", "opt_index"],
     [""]
 ]
 first = ["[", ""]
 follow = ["="]
-
-[idx]
-prods = [
-    ["INTEGER"]
-]
-first = ["INTEGER"]
-follow = ["]"]
 
 [optelse]
 prods = [
