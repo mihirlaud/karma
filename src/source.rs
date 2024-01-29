@@ -861,7 +861,7 @@ impl Source {
             let mut addr: u32 = 0x0;
 
             match self.symbol_table[node_id]["main"].clone() {
-                TLElement::Function(_, params, var_set, tree) => {
+                TLElement::Function(ret_type, params, var_set, tree) => {
                     function_locations.insert("main".to_string(), bytes.len());
 
                     for (var_id, var_type) in var_set.clone() {
@@ -940,28 +940,33 @@ impl Source {
                         &mut calls,
                         tree,
                     );
+
+                    if ret_type == "" {
+                        println!("main ret {ret_type}");
+                        bytes.push(0x64);
+                    }
                 }
                 _ => {}
             }
 
             function_locations.insert("print_int".to_string(), bytes.len());
-            bytes.extend_from_slice(&[0x90, 0x10, 0x0, 0x0, 0x0, 0x0, 0x5B]);
+            bytes.extend_from_slice(&[0x90, 0x64]);
 
             function_locations.insert("print_float".to_string(), bytes.len());
-            bytes.extend_from_slice(&[0x91, 0x10, 0x0, 0x0, 0x0, 0x0, 0x5B]);
+            bytes.extend_from_slice(&[0x91, 0x64]);
 
             function_locations.insert("print_bool".to_string(), bytes.len());
-            bytes.extend_from_slice(&[0x92, 0x10, 0x0, 0x0, 0x0, 0x0, 0x5B]);
+            bytes.extend_from_slice(&[0x92, 0x64]);
 
             function_locations.insert("print_char".to_string(), bytes.len());
-            bytes.extend_from_slice(&[0x93, 0x10, 0x0, 0x0, 0x0, 0x0, 0x5B]);
+            bytes.extend_from_slice(&[0x93, 0x64]);
 
             for fn_id in self.symbol_table[node_id].keys() {
                 if fn_id == "main" {
                     continue;
                 }
                 match self.symbol_table[node_id][fn_id].clone() {
-                    TLElement::Function(_, params, var_set, tree) => {
+                    TLElement::Function(ret_type, params, var_set, tree) => {
                         function_locations.insert(fn_id.clone(), bytes.len());
 
                         for (var_id, var_type) in var_set.clone() {
@@ -1039,6 +1044,10 @@ impl Source {
                             &mut calls,
                             tree,
                         );
+
+                        if ret_type == "" {
+                            bytes.push(0x64);
+                        }
                     }
                     _ => {}
                 }
@@ -1127,7 +1136,7 @@ impl Source {
                             let arr_type = t.get(1..last_semicolon).unwrap();
                             match arr_type {
                                 "int" => {
-                                    for i in 0..len {
+                                    for _ in 0..len {
                                         slice.push(0x87);
                                         let b = addr.to_be_bytes();
                                         slice.extend_from_slice(&b);
@@ -1136,7 +1145,7 @@ impl Source {
                                     &slice
                                 }
                                 "float" => {
-                                    for i in 0..len {
+                                    for _ in 0..len {
                                         slice.push(0x88);
                                         let b = addr.to_be_bytes();
                                         slice.extend_from_slice(&b);
@@ -1145,7 +1154,7 @@ impl Source {
                                     &slice
                                 }
                                 "bool" => {
-                                    for i in 0..len {
+                                    for _ in 0..len {
                                         slice.push(0x89);
                                         let b = addr.to_be_bytes();
                                         slice.extend_from_slice(&b);
@@ -1154,7 +1163,7 @@ impl Source {
                                     &slice
                                 }
                                 "char" => {
-                                    for i in 0..len {
+                                    for _ in 0..len {
                                         slice.push(0x8A);
                                         let b = addr.to_be_bytes();
                                         slice.extend_from_slice(&b);

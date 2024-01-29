@@ -50,7 +50,7 @@
 # and       -- 0x58
 # or        -- 0x59
 # jump      -- 0x5A
-# ret       -- 0x5B
+# retval    -- 0x5B
 # eqf       -- 0x5C
 # neqf      -- 0x5D
 # lessf     -- 0x5E
@@ -59,6 +59,7 @@
 # geqf      -- 0x61
 # eqb       -- 0x62
 # neqb      -- 0x63
+# ret       -- 0x64
 
 # arrays
 # decla     -- 0x80 addr    type_len    len

@@ -1,10 +1,5 @@
 node HelloKarma {
-    fn main() -> int {
-        var s: [int; 3] = [0, 1, 2];
-
-        var i: int = 0;
-        s[0] = s[0];
-
-        return 0;
+    fn main() -> () {
+        
     }
 }
