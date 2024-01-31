@@ -83,66 +83,6 @@ pub enum Token {
     Char,
 }
 
-impl std::fmt::Display for Token {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Token::ID(name) => write!(f, "ID: {name}"),
-            Token::Integer(int) => write!(f, "Integer: {int}"),
-            Token::Float(float) => write!(f, "Float: {float}"),
-            Token::Character(c) => write!(f, "Char: {c}"),
-            Token::StringLiteral(s) => write!(f, "String literal: {s}"),
-            Token::Node => write!(f, "node"),
-            Token::Export => write!(f, "export"),
-            Token::Var => write!(f, "var"),
-            Token::Const => write!(f, "const"),
-            Token::Fn => write!(f, "fn"),
-            Token::While => write!(f, "while"),
-            Token::True => write!(f, "true"),
-            Token::False => write!(f, "false"),
-            Token::If => write!(f, "if"),
-            Token::Else => write!(f, "else"),
-            Token::Assign => write!(f, "="),
-            Token::Add => write!(f, "+"),
-            Token::Mul => write!(f, "*"),
-            Token::Sub => write!(f, "-"),
-            Token::Div => write!(f, "/"),
-            Token::AddAssign => write!(f, "+="),
-            Token::MulAssign => write!(f, "*="),
-            Token::SubAssign => write!(f, "-="),
-            Token::DivAssign => write!(f, "/="),
-            Token::LeftParen => write!(f, "("),
-            Token::RightParen => write!(f, ")"),
-            Token::LeftBracket => write!(f, "["),
-            Token::RightBracket => write!(f, "]"),
-            Token::LeftBrace => write!(f, "{{"),
-            Token::RightBrace => write!(f, "}}"),
-            Token::Semicolon => write!(f, ";"),
-            Token::Colon => write!(f, ":"),
-            Token::DoubleColon => write!(f, "::"),
-            Token::Arrow => write!(f, "->"),
-            Token::Dot => write!(f, "."),
-            Token::Comma => write!(f, ","),
-            Token::Equals => write!(f, "=="),
-            Token::Not => write!(f, "!"),
-            Token::Less => write!(f, "<"),
-            Token::Greater => write!(f, ">"),
-            Token::Leq => write!(f, "<="),
-            Token::Geq => write!(f, ">="),
-            Token::Neq => write!(f, "!="),
-            Token::LogicalAnd => write!(f, "&&"),
-            Token::LogicalOr => write!(f, "||"),
-            Token::BitwiseAnd => write!(f, "&"),
-            Token::BitwiseOr => write!(f, "|"),
-            Token::Return => write!(f, "return"),
-            Token::Struct => write!(f, "struct"),
-            Token::Int => write!(f, "int"),
-            Token::FloatKW => write!(f, "float"),
-            Token::Bool => write!(f, "bool"),
-            Token::Char => write!(f, "char"),
-        }
-    }
-}
-
 pub struct Lexer {
     chars: Vec<char>,
     curr: usize,
@@ -172,93 +112,64 @@ impl Lexer {
 
             match state {
                 0 => {
-                    if c == ' ' || c == '\t' || c == '\n' || c == '\r' {
-                        self.curr = forward + 1;
+                    match c {
+                        ' ' | '\t' | '\n' | '\r' | '{' | '}' | '(' | ')' | '[' | ']' | ';'
+                        | '.' | ',' => {
+                            self.curr = forward + 1;
+                        }
+                        _ => {}
                     }
 
-                    if c == '{' {
-                        self.curr = forward + 1;
-                        return Ok(Some(Token::LeftBrace));
+                    match c {
+                        '{' => {
+                            return Ok(Some(Token::LeftBrace));
+                        }
+                        '}' => {
+                            return Ok(Some(Token::RightBrace));
+                        }
+                        '(' => {
+                            return Ok(Some(Token::LeftParen));
+                        }
+                        ')' => {
+                            return Ok(Some(Token::RightParen));
+                        }
+                        '[' => {
+                            return Ok(Some(Token::LeftBracket));
+                        }
+                        ']' => {
+                            return Ok(Some(Token::RightBracket));
+                        }
+                        ';' => {
+                            return Ok(Some(Token::Semicolon));
+                        }
+                        '.' => {
+                            return Ok(Some(Token::Dot));
+                        }
+                        ',' => {
+                            return Ok(Some(Token::Comma));
+                        }
+                        _ => {}
                     }
 
-                    if c == '}' {
-                        self.curr = forward + 1;
-                        return Ok(Some(Token::RightBrace));
-                    }
+                    state = match c {
+                        '+' | '*' | '=' | '!' | '<' | '>' => 1,
+                        ':' => 2,
+                        '-' => 3,
+                        '_' => 4,
+                        '"' => 7,
+                        '&' => 8,
+                        '|' => 9,
+                        '/' => 10,
+                        '\'' => 12,
+                        _ => 0,
+                    };
 
-                    if c == '(' {
-                        self.curr = forward + 1;
-                        return Ok(Some(Token::LeftParen));
-                    }
-
-                    if c == ')' {
-                        self.curr = forward + 1;
-                        return Ok(Some(Token::RightParen));
-                    }
-
-                    if c == '[' {
-                        self.curr = forward + 1;
-                        return Ok(Some(Token::LeftBracket));
-                    }
-
-                    if c == ']' {
-                        self.curr = forward + 1;
-                        return Ok(Some(Token::RightBracket));
-                    }
-
-                    if c == ';' {
-                        self.curr = forward + 1;
-                        return Ok(Some(Token::Semicolon));
-                    }
-
-                    if c == '.' {
-                        self.curr = forward + 1;
-                        return Ok(Some(Token::Dot));
-                    }
-
-                    if c == ',' {
-                        self.curr = forward + 1;
-                        return Ok(Some(Token::Comma));
-                    }
-
-                    if c == '+' || c == '*' || c == '=' || c == '!' || c == '<' || c == '>' {
-                        state = 1;
-                    }
-
-                    if c == ':' {
-                        state = 2;
-                    }
-
-                    if c == '-' {
-                        state = 3;
-                    }
-
-                    if c.is_ascii_alphabetic() || c == '_' {
+                    if c.is_ascii_alphabetic() {
                         state = 4;
                     }
 
                     if c.is_ascii_digit() {
                         state = 5;
-                    }
-
-                    if c == '"' {
-                        state = 7;
-                    }
-
-                    if c == '&' {
-                        state = 8;
-                    }
-
-                    if c == '|' {
-                        state = 9;
-                    }
-
-                    if c == '/' {
-                        state = 10;
-                    }
-
-                    if c == '\'' {
-                        state = 12;
                     }
                 }
                 1 => {
@@ -275,25 +186,25 @@ impl Lexer {
                     }
                 }
                 2 => {
-                    if c == ':' {
-                        self.curr = forward + 1;
-                        return Ok(Some(Token::DoubleColon));
+                    self.curr = forward + if c == ':' { 1 } else { 0 };
+                    return Ok(Some(if c == ':' {
+                        Token::DoubleColon
                     } else {
-                        self.curr = forward;
-                        return Ok(Some(Token::Colon));
-                    }
+                        Token::Colon
+                    }));
                 }
                 3 => {
-                    if c == '>' {
-                        self.curr = forward + 1;
-                        return Ok(Some(Token::Arrow));
-                    } else if c == '=' {
-                        self.curr = forward + 1;
-                        return Ok(Some(Token::SubAssign));
-                    } else {
-                        self.curr = forward;
-                        return Ok(Some(Token::Sub));
-                    }
+                    self.curr = forward
+                        + match c {
+                            '>' | '=' => 1,
+                            _ => 0,
+                        };
+
+                    return Ok(Some(match c {
+                        '>' => Token::Arrow,
+                        '=' => Token::SubAssign,
+                        _ => Token::Sub,
+                    }));
                 }
                 4 => {
                     if !(c.is_ascii_alphanumeric() || c == '_') {
@@ -341,22 +252,28 @@ impl Lexer {
                     }
                 }
                 8 => {
-                    if c == '&' {
-                        self.curr = forward + 1;
-                        return Ok(Some(Token::LogicalAnd));
-                    } else {
-                        self.curr = forward;
-                        return Ok(Some(Token::BitwiseAnd));
-                    }
+                    self.curr = forward
+                        + match c {
+                            '&' => 1,
+                            _ => 0,
+                        };
+
+                    return Ok(Some(match c {
+                        '&' => Token::LogicalAnd,
+                        _ => Token::BitwiseAnd,
+                    }));
                 }
                 9 => {
-                    if c == '|' {
-                        self.curr = forward + 1;
-                        return Ok(Some(Token::LogicalAnd));
-                    } else {
-                        self.curr = forward;
-                        return Ok(Some(Token::BitwiseAnd));
-                    }
+                    self.curr = forward
+                        + match c {
+                            '|' => 1,
+                            _ => 0,
+                        };
+
+                    return Ok(Some(match c {
+                        '|' => Token::LogicalOr,
+                        _ => Token::BitwiseOr,
+                    }));
                 }
                 10 => {
                     if c == '=' {

@@ -55,16 +55,17 @@ prods = [
     ["top_level_stmt", "top_level_stmt_list"],
     [""]
 ]
-first = ["fn", ""]
+first = ["fn", "export", "struct", ""]
 follow = ["}"]
 
 [top_level_stmt]
 prods = [
+    ["struct", "id", "{", "param_list", "}"],
     ["export", "definition"],
     ["func"]
 ]
-first = ["fn", "export"]
-follow = ["fn", "}"]
+first = ["fn", "export", "struct"]
+follow = ["fn", "export", "struct", "}"]
 
 [func]
 prods = [
@@ -88,7 +89,7 @@ prods = [
     [""]
 ]
 first = ["IDENTIFIER", ""]
-follow = [")"]
+follow = [")", "}"]
 
 [param]
 prods = [
@@ -103,7 +104,7 @@ prods = [
     [""]
 ]
 first = [",", ""]
-follow = [")"]
+follow = [")", "}"]
 
 [block]
 prods = [
@@ -191,19 +192,21 @@ follow = ["+", "-", ")", ";", "==", "!=", "<", ">", "<=", ">=", "&&", "||", "{",
 [factor]
 prods = [
     ["(", "expression", ")"],
-    ["id", "id_or_fn"],
+    ["id", "id_rest"],
     ["primitive"]
 ]
 first = ["(", "IDENTIFIER", "-", "INTEGER", "FLOAT", "true", "false"]
 follow = ["*", "/", "+", "-", ")", ";", "==", "!=", "<", ">", "<=", ">=", "&&", "||", "{", ",", "]"]
 
-[id_or_fn]
+[id_rest]
 prods = [
     ["(", "input_list", ")"],
     ["opt_index"],
+    ["::", "id", "id_rest"],
+    [".", "id", "id_rest"],
     [""]
 ]
-first = ["(", "[", ""]
+first = ["(", "[", "::", ".", ""]
 follow = ["*", "/", "+", "-", ")", ";", "==", "!=", "<", ">", "<=", ">=", "&&", "||", "{", ",", "]"]
 
 [id]
@@ -228,6 +231,29 @@ prods = [
 ]
 first = [",", ""]
 follow = [")", "]"]
+
+[field_list]
+prods = [
+    ["field", "field_rest"],
+    [""]
+]
+first = ["IDENTIFIER", ""]
+follow = ["}"]
+
+[field_rest]
+prods = [
+    [",", "field_list"],
+    [""]
+]
+first = [",", ""]
+follow = ["}"]
+
+[field]
+prods = [
+    ["id", ":", "value"]
+]
+first = ["IDENTIFIER"]
+follow = [",", "}"]
 
 [conditional]
 prods = [
@@ -298,8 +324,8 @@ first = ["INTEGER", "FLOAT"]
 
 [definition]
 prods = [
-    ["var", "id", ":", "type", "=", "cond_or_arr", ";"],
-    ["const", "id", ":", "type", "=", "cond_or_arr", ";"],
+    ["var", "id", ":", "type", "=", "value", ";"],
+    ["const", "id", ":", "type", "=", "value", ";"],
 ]
 first = ["var", "const"]
 follow = ["fn", "export", "var", "const", "IDENTIFIER", "while", "if", "return", "}"]
@@ -316,10 +342,11 @@ prods = [
 first = ["IDENTIFIER", "int", "float", "char", "bool", "["]
 follow = ["=", "{", ";"]
 
-[cond_or_arr]
+[value]
 prods = [
     ["conditional"],
-    ["array"]
+    ["array"],
+    ["{", "field_list", "}"]
 ]
 first = ["[", "(", "IDENTIFIER", "-", "INTEGER", "FLOAT", "true", "false", "CHARACTER"]
 follow = ["{", ";", ","]

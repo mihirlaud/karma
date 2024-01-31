@@ -23,7 +23,7 @@ enum TLElement {
         HashSet<(String, String)>,
         AbstractSyntaxTree,
     ),
-    Struct,
+    Struct(Vec<(String, String)>),
     Export,
 }
 
@@ -39,6 +39,8 @@ impl Source {
 
         let mut symbol_table = HashMap::new();
         Self::seed_symbol_table(&mut symbol_table, parser.ast.clone())?;
+
+        // println!("{symbol_table:?}");
 
         Self::check_semantics(&mut symbol_table)?;
 
@@ -131,6 +133,28 @@ impl Source {
         node_id: String,
     ) -> Result<(), usize> {
         match ast.node {
+            SyntaxTreeNode::DeclareStruct => {
+                let id = match ast.children[0].clone().node {
+                    SyntaxTreeNode::Identifier(id) => id,
+                    _ => "".to_string(),
+                };
+
+                let fields = Self::sst_func(ast.children[1].clone())?;
+
+                let entry = TLElement::Struct(fields);
+
+                let mut map = match symbol_table.get(&node_id) {
+                    Some(m) => m.clone(),
+                    None => HashMap::new(),
+                };
+
+                if map.contains_key(&id) {
+                    return Err(2);
+                }
+
+                map.insert(id, entry);
+                symbol_table.insert(node_id, map);
+            }
             SyntaxTreeNode::DeclareFunc => {
                 let id = match ast.children[0].clone().node {
                     SyntaxTreeNode::Identifier(id) => id,
@@ -402,6 +426,7 @@ impl Source {
                     }
                 }
 
+                println!("{id}");
                 return Err(6);
             }
             SyntaxTreeNode::FnCall => {
@@ -428,6 +453,10 @@ impl Source {
                 }
 
                 return Err(7);
+            }
+            SyntaxTreeNode::FieldList => {
+                println!("field list");
+                return Ok(());
             }
             _ => {
                 for child in children {

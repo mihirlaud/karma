@@ -1,12 +1,20 @@
 node HelloKarma {
-    fn main() -> () {
-        var matrix: [[int; 3]; 3] = [
-            [1, 2, 3],
-            [4, 5, 6],
-            [7, 8, 9],
-        ];
 
-        var a: int = matrix[0][0];
-        print_int(a);
+    struct Point {
+        x: float,
+        y: float
     }
+    
+    fn main() -> () {
+        var p: Point = {
+            x: -10.5,
+            y: 5.0,
+        };
+
+        print_float(p.x);
+        print_char(' ');
+        print_float(p.y);
+        println();
+    }
+
 }
