@@ -12,7 +12,7 @@ Karma wants to solve this by baking the most common paradigms, algorithms, and s
 
 Karma is still very much a **work-in-progress** and many features do not exist yet. This is a list of features that will be added (in no particular order):
 
-- [ ] Arrays
+- [x] Arrays
 - [x] Chars
 - [x] Booleans
 - [ ] String literals

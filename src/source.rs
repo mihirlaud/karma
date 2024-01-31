@@ -416,6 +416,7 @@ impl Source {
                     || id == "print_float"
                     || id == "print_bool"
                     || id == "print_char"
+                    || id == "println"
                 {
                     return Ok(());
                 }
@@ -884,14 +885,20 @@ impl Source {
                         bytes.extend_from_slice(&b);
 
                         if var_type.get(0..1).unwrap() == "[" {
-                            let last_semicolon = var_type.rfind(";").unwrap();
-                            let len = var_type
-                                .get(last_semicolon + 2..var_type.len() - 1)
-                                .unwrap();
-                            let len = len.parse::<i32>().expect("could not parse to int");
+                            let mut last_semicolon = var_type.rfind(";");
+                            let mut s = var_type.clone();
 
-                            let arr_type = var_type.get(1..last_semicolon).unwrap();
-                            match arr_type {
+                            let mut len = 1;
+                            while last_semicolon != None {
+                                let i = last_semicolon.unwrap();
+                                let str_len = s.get(i + 2..s.len() - 1).unwrap();
+                                len = len * str_len.parse::<i32>().expect("could not parse to int");
+
+                                s = s.get(1..i).unwrap().to_string();
+                                last_semicolon = s.rfind(";");
+                            }
+
+                            match s.as_str() {
                                 "int" | "float" => bytes.push(0x4),
                                 "bool" | "char" => bytes.push(0x1),
                                 _ => {}
@@ -899,7 +906,7 @@ impl Source {
 
                             bytes.extend_from_slice(&len.to_be_bytes());
 
-                            addr += match arr_type {
+                            addr += match s.as_str() {
                                 "int" | "float" => 4 * len as u32,
                                 "bool" | "char" => 1 * len as u32,
                                 _ => 0,
@@ -942,7 +949,6 @@ impl Source {
                     );
 
                     if ret_type == "" {
-                        println!("main ret {ret_type}");
                         bytes.push(0x64);
                     }
                 }
@@ -960,6 +966,9 @@ impl Source {
 
             function_locations.insert("print_char".to_string(), bytes.len());
             bytes.extend_from_slice(&[0x93, 0x64]);
+
+            function_locations.insert("println".to_string(), bytes.len());
+            bytes.extend_from_slice(&[0x15, 0xA, 0x93, 0x64]);
 
             for fn_id in self.symbol_table[node_id].keys() {
                 if fn_id == "main" {
@@ -1110,17 +1119,6 @@ impl Source {
 
                 let (t, addr) = variable_addresses[&id].clone();
 
-                // if t.get(0..1).unwrap() == "[" {
-                //     Self::generate_expr_bytecode(
-                //         bytes,
-                //         functions,
-                //         var_set,
-                //         variable_addresses,
-                //         calls,
-                //         children[1].clone(),
-                //     );
-                // }
-
                 let mut slice = vec![];
                 bytes.extend_from_slice(match t.as_str() {
                     "int" => &[0x24],
@@ -1129,12 +1127,20 @@ impl Source {
                     "char" => &[0x2E],
                     _ => {
                         if t.get(0..1).unwrap() == "[" {
-                            let last_semicolon = t.rfind(";").unwrap();
-                            let len = t.get(last_semicolon + 2..t.len() - 1).unwrap();
-                            let len = len.parse::<i32>().expect("could not parse to int");
+                            let mut last_semicolon = t.rfind(";");
+                            let mut s = t.clone();
 
-                            let arr_type = t.get(1..last_semicolon).unwrap();
-                            match arr_type {
+                            let mut len = 1;
+                            while last_semicolon != None {
+                                let i = last_semicolon.unwrap();
+                                let str_len = s.get(i + 2..s.len() - 1).unwrap();
+                                len = len * str_len.parse::<i32>().expect("could not parse to int");
+
+                                s = s.get(1..i).unwrap().to_string();
+                                last_semicolon = s.rfind(";");
+                            }
+
+                            match s.as_str() {
                                 "int" => {
                                     for _ in 0..len {
                                         slice.push(0x87);
@@ -1195,23 +1201,25 @@ impl Source {
                     children[2].clone(),
                 );
 
-                if children[1].clone().node == SyntaxTreeNode::Index {
-                    Self::generate_expr_bytecode(
-                        bytes,
-                        functions,
-                        var_set,
-                        variable_addresses,
-                        calls,
-                        children[1].clone().children[0].clone(),
-                    );
-                }
-
                 let id = match children[0].clone().node {
                     SyntaxTreeNode::Identifier(id) => id,
                     _ => "".to_string(),
                 };
 
                 let (t, addr) = variable_addresses[&id].clone();
+
+                if children[1].clone().node == SyntaxTreeNode::Index {
+                    Self::generate_index_bytecode(
+                        bytes,
+                        functions,
+                        var_set,
+                        variable_addresses,
+                        calls,
+                        children[1].clone(),
+                        t.clone(),
+                    );
+                }
+
                 bytes.push(match t.as_str() {
                     "int" => 0x24,
                     "float" => 0x25,
@@ -1219,10 +1227,16 @@ impl Source {
                     "char" => 0x2E,
                     _ => {
                         if children[1].clone().node == SyntaxTreeNode::Index {
-                            let last_semicolon = t.rfind(";").unwrap();
+                            let mut last_semicolon = t.rfind(";");
+                            let mut s = t.clone();
+                            while last_semicolon != None {
+                                let i = last_semicolon.unwrap();
 
-                            let arr_type = t.get(1..last_semicolon).unwrap();
-                            match arr_type {
+                                s = s.get(1..i).unwrap().to_string();
+                                last_semicolon = s.rfind(";");
+                            }
+
+                            match s.as_str() {
                                 "int" => 0x87,
                                 "float" => 0x88,
                                 "bool" => 0x89,
@@ -1237,16 +1251,6 @@ impl Source {
 
                 let b = addr.to_be_bytes();
                 bytes.extend_from_slice(&b);
-
-                if children[1].clone().node == SyntaxTreeNode::Index {
-                    match children[1].clone().children[0].clone().node {
-                        SyntaxTreeNode::Integer(i) => {
-                            let b = i.to_be_bytes();
-                            bytes.extend_from_slice(&b);
-                        }
-                        _ => {}
-                    }
-                }
             }
             SyntaxTreeNode::FnCall => {
                 let id = match children[0].clone().node {
@@ -1441,13 +1445,14 @@ impl Source {
 
         match ast.node {
             SyntaxTreeNode::InputList => {
+                let tree = Self::build_arr_from_input_list(ast.clone());
                 Self::generate_arr_bytecode(
                     bytes,
                     functions,
                     var_set,
                     variable_addresses,
                     calls,
-                    ast.clone(),
+                    tree.clone(),
                     0,
                 );
             }
@@ -1611,18 +1616,19 @@ impl Source {
                 bytes.extend_from_slice(&[0x15, c as u8]);
             }
             SyntaxTreeNode::Identifier(id) => {
+                let (t, addr) = variable_addresses[&id].clone();
                 if children.len() > 0 {
-                    Self::generate_expr_bytecode(
+                    Self::generate_index_bytecode(
                         bytes,
                         functions,
                         var_set,
                         variable_addresses,
                         calls,
                         children[0].clone(),
+                        t.clone(),
                     );
                 }
 
-                let (t, addr) = variable_addresses[&id].clone();
                 bytes.push(match t.as_str() {
                     "int" => 0x22,
                     "float" => 0x23,
@@ -1630,9 +1636,17 @@ impl Source {
                     "char" => 0x2D,
                     _ => {
                         if t.get(0..1).unwrap() == "[" {
-                            let last_semicolon = t.rfind(";").unwrap();
-                            let arr_type = t.get(1..last_semicolon).unwrap();
-                            match arr_type {
+                            let mut last_semicolon = t.rfind(";");
+                            let mut s = t.clone();
+
+                            while last_semicolon != None {
+                                let i = last_semicolon.unwrap();
+
+                                s = s.get(1..i).unwrap().to_string();
+                                last_semicolon = s.rfind(";");
+                            }
+
+                            match s.as_str() {
                                 "int" => 0x82,
                                 "float" => 0x83,
                                 "bool" => 0x84,
@@ -1647,16 +1661,6 @@ impl Source {
 
                 let b = addr.to_be_bytes();
                 bytes.extend_from_slice(&b);
-            }
-            SyntaxTreeNode::Index => {
-                Self::generate_expr_bytecode(
-                    bytes,
-                    functions,
-                    var_set,
-                    variable_addresses,
-                    calls,
-                    children[0].clone(),
-                );
             }
             _ => {
                 for child in children {
@@ -1737,6 +1741,7 @@ impl Source {
                     children[1].clone(),
                     idx + 1,
                 );
+
                 Self::generate_expr_bytecode(
                     bytes,
                     functions,
@@ -1745,21 +1750,111 @@ impl Source {
                     calls,
                     children[0].clone(),
                 );
+
                 bytes.push(0x10);
                 bytes.extend_from_slice(&idx.to_be_bytes());
             }
-            _ => {
-                for child in children {
-                    Self::generate_arr_bytecode(
-                        bytes,
-                        functions,
-                        var_set,
-                        variable_addresses,
-                        calls,
-                        child,
-                        idx + 1,
-                    );
+            _ => {}
+        }
+    }
+
+    fn generate_index_bytecode(
+        bytes: &mut Vec<u8>,
+        functions: &Vec<(String, String, Vec<(String, String)>)>,
+        var_set: &HashSet<(String, String)>,
+        variable_addresses: &HashMap<String, (String, u32)>,
+        calls: &mut Vec<(usize, String)>,
+        ast: AbstractSyntaxTree,
+        t: String,
+    ) {
+        let children = ast.children.clone();
+        match ast.node {
+            SyntaxTreeNode::Index => {
+                Self::generate_expr_bytecode(
+                    bytes,
+                    functions,
+                    var_set,
+                    variable_addresses,
+                    calls,
+                    children[0].clone(),
+                );
+
+                let mut last_semicolon = t.rfind(";");
+                let mut s = t.clone();
+
+                let mut len = 1;
+                while last_semicolon != None {
+                    let i = last_semicolon.unwrap();
+                    let str_len = s.get(i + 2..s.len() - 1).unwrap();
+                    len = len * str_len.parse::<i32>().expect("could not parse to int");
+
+                    let new_t = s.get(1..i).unwrap().to_string();
+                    last_semicolon = new_t.rfind(";");
+
+                    if last_semicolon == None {
+                        len /= str_len.parse::<i32>().expect("could not parse to int");
+                        break;
+                    }
+
+                    s = new_t;
                 }
+
+                bytes.push(0x10);
+                bytes.extend_from_slice(&len.to_be_bytes());
+                bytes.push(0x34);
+
+                Self::generate_index_bytecode(
+                    bytes,
+                    functions,
+                    var_set,
+                    variable_addresses,
+                    calls,
+                    children[1].clone(),
+                    s.clone(),
+                );
+
+                if children[1].clone().node != SyntaxTreeNode::Null {
+                    bytes.push(0x30);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn build_arr_from_input_list(ast: AbstractSyntaxTree) -> AbstractSyntaxTree {
+        if ast.node != SyntaxTreeNode::InputList {
+            return ast;
+        }
+
+        let left = Self::build_arr_from_input_list(ast.children[0].clone());
+        let right = Self::build_arr_from_input_list(ast.children[1].clone());
+
+        let tree = Self::build_arr_helper(left, right);
+
+        tree
+    }
+
+    fn build_arr_helper(left: AbstractSyntaxTree, right: AbstractSyntaxTree) -> AbstractSyntaxTree {
+        match left.node {
+            SyntaxTreeNode::Null => right,
+            SyntaxTreeNode::InputList => {
+                let mut tree = AbstractSyntaxTree::new();
+
+                tree.node = SyntaxTreeNode::InputList;
+                tree.children = vec![
+                    left.children[0].clone(),
+                    Self::build_arr_helper(left.children[1].clone(), right.clone()),
+                ];
+
+                tree
+            }
+            _ => {
+                let mut tree = AbstractSyntaxTree::new();
+
+                tree.node = SyntaxTreeNode::InputList;
+                tree.children = vec![left.clone(), right.clone()];
+
+                tree
             }
         }
     }
